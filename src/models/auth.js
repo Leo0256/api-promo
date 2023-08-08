@@ -19,7 +19,6 @@ export default class Auth {
 
         // Nenhum token informado?
         if(!token) {
-            console.error(err)
             return res.status(401).json({
                 error: 'Acesso não autorizado',
                 message: 'Nenhum token informado no header'
