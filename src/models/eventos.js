@@ -82,9 +82,8 @@ export default class Eventos {
                     }
                 ]
             })
-            .then(result => {
-                console.log(result)
-                return result.map(a => {
+            .then(result => (
+                result.map(a => {
                     // Dados do evento
                     let evento = a.getDataValue('tbl_evento').dataValues
 
@@ -133,7 +132,7 @@ export default class Eventos {
                         categoria: a.getDataValue('codCatSite')
                     })
                 })
-            })
+            ))
         })
 
         // 00:00 hora do dia atual
