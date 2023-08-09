@@ -1,5 +1,7 @@
+import Eventos from './eventos.js'
 import Usuario from './usuario.js'
 
 export {
-    Usuario
+    Eventos,
+    Usuario,
 }
