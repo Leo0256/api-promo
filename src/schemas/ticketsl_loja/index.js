@@ -4,6 +4,9 @@ import lltckt_category_to_promoter from './lltckt_category_to_promoter.js'
 import lltckt_category from './lltckt_category.js'
 import lltckt_eve_categorias from './lltckt_eve_categorias.js'
 import lltckt_manufacturer from './lltckt_manufacturer.js'
+import lltckt_order_product from './lltckt_order_product.js'
+import lltckt_order from './lltckt_order.js'
+import lltckt_product from './lltckt_product.js'
 import lltckt_user from './lltckt_user.js'
 
 /**
@@ -13,8 +16,11 @@ const schemas = {
     lltckt_category,
     lltckt_eve_categorias,
     lltckt_manufacturer,
+    lltckt_product,
     lltckt_user,
     lltckt_category_to_promoter,
+    lltckt_order,
+    lltckt_order_product,
 }
 
 const syncModels = async () => {
