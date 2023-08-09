@@ -1,4 +1,5 @@
 import schemas from '../schemas/index.js'
+import Shared from './shared.js'
 
 const {
     tbl_eventos,
@@ -19,20 +20,6 @@ const {
  * Regras de negócio dos Eventos
  */
 export default class Eventos {
-
-    /**
-     * Converte valores numéricos no formato
-     * monetário brasileiro.
-     * 
-     * @param {string|number} value 
-     * @returns 
-     */
-    static moneyFormat(value) {
-        return (Number(value ?? 0)).toLocaleString(
-            'pt-BR', 
-            {currency: 'BRL', style: 'currency'}
-        )
-    }
 
     /**
      * Retorna a lista dos Eventos do Promotor
@@ -90,10 +77,6 @@ export default class Eventos {
                     // Dados do local do evento
                     let category = a.getDataValue('lltckt_category').dataValues
 
-
-                    // Auxiliar no cálculo dos dias até o evento
-                    const one_day = 24 * 60 * 60 * 1000
-
                     // Data atual
                     let today = new Date()
 
@@ -101,28 +84,19 @@ export default class Eventos {
                     let date_aux = new Date(evento.eve_data)
 
                     // Formata a data do evento
-                    evento.eve_data = date_aux.toLocaleString(
-                        'pt-BR',
-                        { timeZoneName: 'short' }
-                    )
-                    .split(' ')[0]
+                    evento.eve_data = Shared.getFullDate(date_aux)
 
                     // Status do início do evento
                     let inicio_evento
-
-                    // O evento é no mesmo dia de hoje?
-                    if(date_aux.getTime() == today.getTime()) {
+                    
+                    // Calcula os dias até o início do evento
+                    const days_to = Shared.calcDaysBetween(date_aux, today)
+                    if(days_to > 0)
+                        inicio_evento = `Faltam ${days_to} dias`
+                    else if(days_to < 0)
+                        inicio_evento = 'Encerrado'
+                    else
                         inicio_evento = 'Hoje'
-                    }
-                    else {
-                        // Calcula os dias até o evento
-                        let days_to = Math.ceil((date_aux - today) / one_day)
-    
-                        if(days_to > 0)
-                            inicio_evento = `Faltam ${days_to} dias`
-                        else
-                            inicio_evento = 'Encerrado'
-                    }
 
                     return ({
                         ...evento,
@@ -257,8 +231,8 @@ export default class Eventos {
                 vendido_hoje: vendido_pdv_hoje + vendido_site_hoje,
                 vendido_total: vendido_pdv_total + vendido_site_total,
                 cortesias_pdv_total,
-                receitas_hoje: this.moneyFormat(receitas_pdv_hoje + receitas_site_hoje),
-                receitas_total: this.moneyFormat(receitas_pdv_total + receitas_site_total)
+                receitas_hoje: Shared.moneyFormat(receitas_pdv_hoje + receitas_site_hoje),
+                receitas_total: Shared.moneyFormat(receitas_pdv_total + receitas_site_total)
             }
         })
 
