@@ -3,19 +3,17 @@
 import {
     Sequelize,
     Op,
-    cast,
-    col
-} from 'sequelize';
-import dotenv from 'dotenv'
-dotenv.config()
+} from 'sequelize'
 
 const operatorsAliases = {
     $or: Op.or,
     $like: Op.like,
     $not: Op.not,
     $in: Op.in,
-    $cast: cast,
-    $col: col
+    $gt: Op.gt,
+    $gte: Op.gte,
+    $lt: Op.lt,
+    $lte: Op.lte
 }
 
 // Conexão com o banco

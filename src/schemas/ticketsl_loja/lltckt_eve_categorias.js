@@ -1,7 +1,5 @@
 import { DataTypes } from 'sequelize'
 import db_conn from './db_conn.js'
-import { config } from 'dotenv'
-config()
 
 import tbl_eventos from '../ticketsl_promo/tbl_eventos.js'
 import lltckt_category from './lltckt_category.js'
@@ -32,7 +30,7 @@ const lltckt_eve_categorias = db_conn.define(
             type: DataTypes.INTEGER(11)
         }
     },
-    { schema: process.env.BD_LOJA }
+    { schema: process.env.DB_LOJA }
 )
 
 // foreign keys

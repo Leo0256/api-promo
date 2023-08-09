@@ -1,7 +1,5 @@
 import { DataTypes } from 'sequelize'
 import db_conn from './db_conn.js'
-import { config } from 'dotenv'
-config()
 
 
 /**
