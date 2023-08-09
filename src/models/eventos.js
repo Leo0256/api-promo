@@ -21,6 +21,20 @@ const {
 export default class Eventos {
 
     /**
+     * Converte valores numéricos no formato
+     * monetário brasileiro.
+     * 
+     * @param {string|number} value 
+     * @returns 
+     */
+    static moneyFormat(value) {
+        return (Number(value ?? 0)).toLocaleString(
+            'pt-BR', 
+            {currency: 'BRL', style: 'currency'}
+        )
+    }
+
+    /**
      * Retorna a lista dos Eventos do Promotor
      * na tela home.
      * 
@@ -244,8 +258,8 @@ export default class Eventos {
                 vendido_hoje: vendido_pdv_hoje + vendido_site_hoje,
                 vendido_total: vendido_pdv_total + vendido_site_total,
                 cortesias_pdv_total,
-                receitas_hoje: receitas_pdv_hoje + receitas_site_hoje,
-                receitas_total: receitas_pdv_total + receitas_site_total
+                receitas_hoje: this.moneyFormat(receitas_pdv_hoje + receitas_site_hoje),
+                receitas_total: this.moneyFormat(receitas_pdv_total + receitas_site_total)
             }
         })
 
