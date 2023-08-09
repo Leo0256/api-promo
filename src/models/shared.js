@@ -47,4 +47,20 @@ export default class Shared {
         )
     }
 
+    /**
+     * Converte um valor no formato monetário
+     * brasileiro para um float
+     * 
+     * @param {string} value 
+     * @returns 
+     */
+    static moneyToFloat(value) {
+        return parseFloat(
+            value.replace('R$', '')
+            .replace(/\./, '')
+            .replace(/,/, '.')
+            .trim()
+        )
+    }
+
 }
