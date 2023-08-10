@@ -25,4 +25,25 @@ export default class EventosController {
             })
         })
     }
+
+    /**
+     * Retorna as informações gerais das vendas do Evento.
+     * 
+     * @param {Request} req 
+     * @param {Response} res 
+     */
+    static async getInfo(req, res) {
+        let { user_id } = req.body['token_data']
+        let { evento } = req.query
+
+        await Eventos.getInfo(user_id, evento)
+        .then(result => res.json(result))
+        .catch(e => {
+            console.error(e)
+            res.status(e?.status ?? 500).json({
+                error: 'Falha ao Obter a Situação do Evento',
+                message: e?.message ?? null
+            })
+        })
+    }
 }
