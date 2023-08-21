@@ -121,7 +121,8 @@ export default class Eventos {
                 vendido_site_hoje,
                 vendido_site_total,
                 receitas_site_hoje,
-                receitas_site_total
+                receitas_site_total,
+                taxas_site_total
             } = await lltckt_order.findAll({
                 where: {
                     category_id: evento.categoria,
@@ -138,7 +139,8 @@ export default class Eventos {
                     },
                     attributes: [
                         'quantity',
-                        'total'
+                        'total',
+                        'tax'
                     ]
                 }
             })
@@ -151,6 +153,9 @@ export default class Eventos {
                 let receitas_site_hoje = 0  // Hoje
                 let receitas_site_total = 0 // Total
 
+                // Total obtido em taxas no site
+                let taxas_site_total = 0
+
                 result.map(({ dataValues: venda }) => {
                     // Calcula as vendas do dia atual
                     if(venda.date_added >= datetime_inicial_hoje) {
@@ -161,13 +166,17 @@ export default class Eventos {
                     // Calcula as vendas totais
                     vendido_site_total += venda.lltckt_order_product.quantity
                     receitas_site_total += parseFloat(venda.lltckt_order_product.total)
+
+                    // Calcula o total em taxas
+                    taxas_site_total += parseFloat(venda.lltckt_order_product.tax)
                 })
 
                 return {
                     vendido_site_hoje,
                     vendido_site_total,
                     receitas_site_hoje,
-                    receitas_site_total
+                    receitas_site_total,
+                    taxas_site_total
                 }
             })
 
@@ -177,7 +186,8 @@ export default class Eventos {
                 cortesias_pdv_hoje,
                 cortesias_pdv_total,
                 receitas_pdv_hoje,
-                receitas_pdv_total
+                receitas_pdv_total,
+                taxas_pdv_total
             } = await tbl_ingressos.findAll({
                 where: {
                     ing_evento: evento.eve_cod,
@@ -186,7 +196,8 @@ export default class Eventos {
                 },
                 attributes: [
                     'ing_data_compra',
-                    'ing_valor'
+                    'ing_valor',
+                    'ing_taxa'
                 ]
             })
             .then(result => {
@@ -201,6 +212,9 @@ export default class Eventos {
                 // Receitas obtidas nos PDVs
                 let receitas_pdv_hoje = 0   // Hoje
                 let receitas_pdv_total = 0  // Total
+
+                // Total obtido em taxas nos PDVs
+                let taxas_pdv_total = 0
 
                 result.map(({ dataValues: ingresso }) => {
                     if(ingresso.ing_valor != 0) {
@@ -222,6 +236,9 @@ export default class Eventos {
 
                         // Calcula o total de cortesias
                         cortesias_pdv_total++
+
+                        // Calcula o total em taxas
+                        taxas_pdv_total += parseFloat(ingresso.ing_taxa)
                     }
                 })
 
@@ -231,7 +248,8 @@ export default class Eventos {
                     cortesias_pdv_hoje,
                     cortesias_pdv_total,
                     receitas_pdv_hoje,
-                    receitas_pdv_total
+                    receitas_pdv_total,
+                    taxas_pdv_total
                 }
             })
 
@@ -243,7 +261,8 @@ export default class Eventos {
                 cortesias_pdv_hoje,
                 cortesias_pdv_total,
                 receitas_hoje: Shared.moneyFormat(receitas_pdv_hoje + receitas_site_hoje),
-                receitas_total: Shared.moneyFormat(receitas_pdv_total + receitas_site_total)
+                receitas_total: Shared.moneyFormat(receitas_pdv_total + receitas_site_total),
+                taxas_total: Shared.moneyFormat(taxas_pdv_total + taxas_site_total)
             }
         })
 
