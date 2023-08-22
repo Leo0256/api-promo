@@ -270,13 +270,14 @@ export default class Eventos {
     }
 
     /**
-     * Retorna as informações gerais das vendas do Evento.
+     * Retorna a situação das vendas do Evento.
      * 
      * @param {number} user_id Id do Promotor
      * @param {number} evento Id do evento
+     * @param {number} categoria Id do evento no site
      * @returns 
      */
-    static async getInfo(user_id, evento) {
+    static async getInfo(user_id, evento, categoria) {
         // Obtêm os dados das vendas do evento
         const promises = [
             // Situação do evento
@@ -323,7 +324,146 @@ export default class Eventos {
                     since_start
                 }
             }),
-            
+
+            // Faturamentos
+            new Promise(async (resolve, _) => {
+                const faturamentos = [
+                    new Promise(async (resolve, _) => {
+                        // Faturamentos do site - início
+                        let site = {
+                            dinheiro: 0,
+                            credito: 0,
+                            debito: 0,
+                            pix: 0,
+                            total: 0
+                        }
+
+                        // Calcula os faturamento do site
+                        await lltckt_order.findAll({
+                            where: {
+                                category_id: categoria,
+                                order_status_id: 5
+                            },
+                            attributes: [ 'payment_method' ],
+                            include: {
+                                model: lltckt_order_product,
+                                attributes: [ 'total' ]
+                            }
+                        })
+                        .then(orders => {
+                            orders.map(({ dataValues: order }) => {
+                                let valor = parseFloat(order.lltckt_order_product.total)
+                                switch (order.payment_method) {
+                                    // Crédito/Débito?
+                                    case 'PagSeguro':
+                                        site.credito += valor
+                                        break;
+                                    
+                                    // PIX
+                                    case 'PIX':
+                                        site.pix += valor
+                                        break;
+
+                                    default:
+                                        break;
+                                }
+                            })
+                        })
+
+                        // Calcula o faturamento total no site
+                        site.total = Object.entries(site)
+                        .map(([_, value]) => value)
+                        .reduce((prev, next) => (
+                            prev + next
+                        ), 0)
+
+                        // Formata os faturamentos do site
+                        Object.entries(site).map(([key]) => {
+                            site[key] = Shared.moneyFormat(site[key])
+                        })
+
+                        // Faturamentos do site - fim
+
+                        resolve(site)
+                    }),
+
+                    new Promise(async (resolve, _) => {
+                        // Faturamento dos PDVs - início
+                        let pdv = {
+                            dinheiro: 0,
+                            credito: 0,
+                            debito: 0,
+                            pix: 0,
+                            total: 0
+                        }
+
+                        // Calcula os faturamento dos PDVs
+                        await tbl_ingressos.findAll({
+                            where: {
+                                ing_evento: evento,
+                                ing_pdv: { $not: null },
+                                ing_status: { $in: [ 1, 2 ] }
+                            },
+                            attributes: [
+                                'ing_valor',
+                                'ing_mpgto'
+                            ]
+                        })
+                        .then(ingressos => {
+                            ingressos.map(({ dataValues: ingresso }) => {
+                                let valor = parseFloat(ingresso.ing_valor)
+                                switch(ingresso.ing_mpgto) {
+                                    // Dinheiro
+                                    case 1:
+                                        pdv.dinheiro += valor
+                                        break;
+
+                                    // Crédito
+                                    case 2:
+                                        pdv.credito += valor
+                                        break;
+                                    
+                                    // Débito
+                                    case 3:
+                                        pdv.debito += valor
+                                        break;
+                                    
+                                    // PIX
+                                    case 4:
+                                        pdv.pix += valor
+                                        break;
+                                    
+                                    default: break;
+                                }
+                            })
+                        })
+
+                        // Calcula o faturamento total nos PDVs
+                        pdv.total = Object.entries(pdv)
+                        .map(([_, value]) => value)
+                        .reduce((prev, next) => (
+                            prev + next
+                        ), 0)
+
+                        Object.entries(pdv).map(([key]) => {
+                            pdv[key] = Shared.moneyFormat(pdv[key])
+                        })
+
+                        // Faturamento dos PDVs - fim
+                        resolve(pdv)  
+                    })
+                ]
+
+                await Promise.all(faturamentos).then(result => {
+                    resolve({
+                        faturamentos: {
+                            site: result[0],
+                            pdv: result[1]
+                        }
+                    })
+                })
+            }),
+
             this.getEventos(user_id, evento)
             .then(result => {
                 let {
@@ -333,8 +473,6 @@ export default class Eventos {
                     cortesias_pdv_hoje,
                     cortesias_pdv_total,
 
-                    // Faturamentos
-                    receitas_hoje,
                     receitas_total,
                 } = result[0]
 
@@ -355,8 +493,6 @@ export default class Eventos {
                     total_vendido_hoje,
                     total_vendido,
 
-                    // Faturamentos
-                    receitas_hoje,
                     receitas_total,
 
                     // Ticket Médio
@@ -374,6 +510,11 @@ export default class Eventos {
                 since_start
             } = result.find(a => !!a?.since_start)
 
+            // Faturamentos
+            const {
+                faturamentos
+            } = result.find(a => !!a.faturamentos)
+
             const {
                 // Ingressos Emitidos
                 vendido_hoje,
@@ -383,13 +524,11 @@ export default class Eventos {
                 total_vendido_hoje,
                 total_vendido,
     
-                // Faturamentos
-                receitas_hoje,
                 receitas_total,
     
                 // Ticket Médio
                 ticket_medio
-            } = result.find(a => !a?.since_start)
+            } = result.find(a => !!a?.ticket_medio)
 
             // Média diária
             const quant = Math.round(vendido_total / since_start)
@@ -412,10 +551,7 @@ export default class Eventos {
                     total_vendido,
                 },
                 // Faturamentos
-                faturamentos: {
-                    receitas_hoje,
-                    receitas_total,
-                },
+                faturamentos,
                 // Ticket Médio
                 ticket_medio,
                 // Média diária
