@@ -4,6 +4,9 @@ import Shared from './shared.js'
 const {
     tbl_eventos,
     tbl_ingressos,
+    caixa,
+    venda,
+    venda_item,
 } = schemas.ticketsl_promo
 
 const {
@@ -498,6 +501,45 @@ export default class Eventos {
                     // Ticket Médio
                     ticket_medio
                 }
+            }),
+
+            // Info Geral Bar
+            caixa.findAll({
+                where: { EVENTO_CODIGO: evento },
+                attributes: ['CODIGO'],
+                include: {
+                    model: venda,
+                    attributes: ['VALOR_TOTAL'],
+                    include: {
+                        model: venda_item,
+                        attributes: ['QUANTIDADE']
+                    }
+                }
+            })
+            .then(result => {
+                let qtde_caixas = result.length
+                let faturamento_bar = 0
+
+                let vendas = []
+                result.map(({ dataValues: caixa }) => (
+                    caixa.vendas.map(venda => {
+                        faturamento_bar += parseFloat(venda.VALOR_TOTAL)
+
+                        venda.venda_items.map(item => vendas.push(item))
+                    })
+                ))
+
+                let itens_vendidos = vendas.reduce((prev, next) => (
+                    prev + parseFloat(next.QUANTIDADE)
+                ), 0)
+
+                return {
+                    info_geral_bar: {
+                        qtde_caixas,
+                        itens_vendidos,
+                        faturamento_bar
+                    }
+                }
             })
         ]
 
@@ -530,6 +572,25 @@ export default class Eventos {
                 ticket_medio
             } = result.find(a => !!a?.ticket_medio)
 
+            // Info Geral Bar
+            const {
+                info_geral_bar
+            } = result.find(a => !!a.info_geral_bar)
+
+            // Info Geral Bar
+            info_geral_bar.faturamento = info_geral_bar.faturamento_bar + Shared.moneyToFloat(faturamentos.site.total)
+            + Shared.moneyToFloat(faturamentos.pdv.total)
+
+            info_geral_bar.ticket_medio_bar = info_geral_bar.faturamento_bar / info_geral_bar.itens_vendidos
+            info_geral_bar.ticket_medio_bar = !!info_geral_bar.ticket_medio_bar ? info_geral_bar.ticket_medio_bar : 0
+            info_geral_bar.ticket_medio = info_geral_bar.faturamento / total_vendido
+
+            info_geral_bar.faturamento_bar = Shared.moneyFormat(info_geral_bar.faturamento_bar)
+            info_geral_bar.ticket_medio_bar = Shared.moneyFormat(info_geral_bar.ticket_medio_bar)
+            info_geral_bar.ticket_medio = Shared.moneyFormat(info_geral_bar.ticket_medio)
+            info_geral_bar.faturamento = Shared.moneyFormat(info_geral_bar.faturamento)
+
+            
             // Média diária
             const quant = Math.round(vendido_total / since_start)
             const valor = Shared.moneyFormat(Shared.moneyToFloat(receitas_total) / since_start)
@@ -558,7 +619,9 @@ export default class Eventos {
                 media_diaria: {
                     quant,
                     valor
-                }
+                },
+                // Info Geral Bar
+                info_geral_bar
             }
         })
     }
