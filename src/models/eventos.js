@@ -234,7 +234,7 @@ export default class Eventos {
                     else {
                         if(ingresso.ing_data_compra >= datetime_inicial_hoje) {
                             // Calcula as cortesias do dia atual
-                            cortesias_pdv_total++
+                            cortesias_pdv_hoje++
                         }
 
                         // Calcula o total de cortesias
