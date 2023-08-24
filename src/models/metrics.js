@@ -1,11 +1,15 @@
 import schemas from '../schemas/index.js'
+import Shared from './shared.js'
 
 const {
     tbl_ingressos,
+    tbl_classes_ingressos,
+    tbl_categorias_classes_ingressos,
 } = schemas.ticketsl_promo
 
 const {
     lltckt_order,
+    lltckt_product,
     lltckt_order_product,
 } = schemas.ticketsl_loja
 
@@ -91,6 +95,159 @@ export default class Metrics {
             cortesias_perc,
             total
         }
+    }
+
+    /**
+     * Retorna os dados do gráfico de barras "Classes",
+     * tela de venda geral.
+     * 
+     * @param {number} evento Id do evento
+     * @returns 
+     */
+    static async getClasses(evento) {
+        return await tbl_classes_ingressos.findAll({
+            where: { cla_evento: evento },
+            attributes: [
+                'cla_cod',
+                'cla_nome'
+            ],
+            include: [
+                {
+                    model: tbl_categorias_classes_ingressos,
+                    attributes: [ 'cat_nome' ]
+                },
+                {
+                    model: tbl_ingressos,
+                    where: {
+                        ing_pdv: { $not: null },
+                        ing_status: { $in: [ 1, 2 ] }
+                    },
+                    required: false,
+                    separate: true,
+                    attributes: [
+                        'ing_cod_barras',
+                        'ing_valor'
+                    ]
+                },
+                {
+                    model: lltckt_product,
+                    required: false,
+                    separate: true,
+                    attributes: [ 'product_id' ],
+                    include: {
+                        model: lltckt_order_product,
+                        required: true,
+                        attributes: [
+                            'order_id',
+                            'quantity',
+                            'total'
+                        ],
+                        include: {
+                            model: lltckt_order,
+                            attributes: ['order_id'],
+                            where: { order_status_id: 5 }
+                        }
+                    }
+                }
+            ]
+        })
+        .then(result => {
+            const data = []
+
+            result.map(({ dataValues: classe }) => {
+
+                // PDVs - início
+                // Quantidade vendida
+                let pdv_quant = 0
+
+                // Quantidade de cortesias
+                let cortesias_quant = 0
+
+                /*
+                    Calcula o valor total das vendas,
+                    a quantidade vendida e a quantidade de cortesias
+                */
+                let pdv_valor = classe.tbl_ingressos.reduce((prev, next) => {
+                    let valor = parseFloat(next.ing_valor)
+
+                    if(valor != 0) pdv_quant++
+                    else cortesias_quant++
+
+                    return prev + valor
+                }, 0)
+                // PDVs - fim
+
+
+                // Site - início
+                // Quantidade vendida
+                let site_quant = 0
+
+                /*
+                    Calcula o valor total das vendas e
+                    a quantidade vendida
+                */
+                let site_valor = classe.lltckt_products.reduce((prev, next) => (
+                    prev + next.lltckt_order_products.reduce((prev, next) => {
+                        site_quant += next.quantity
+                        return prev + parseFloat(next.total)
+                    }, 0)
+                ), 0)
+                // Site - fim
+
+                // Nome da Classe/Categoria
+                let nome = classe.tbl_categorias_classes_ingresso?.cat_nome ?? classe.cla_nome
+                
+                // Quantidade total de vendas: pdv + site
+                let venda = pdv_quant + site_quant
+
+                // Quantidade total de ingressos: venda + cortesias
+                let total = venda + cortesias_quant
+
+                // Valor total das vendas: pdv + site
+                let valor = pdv_valor + site_valor
+
+                data.push({
+                    tipo: nome,
+                    venda,
+                    cortesia: cortesias_quant,
+                    total,
+                    valor
+                })
+            })
+
+            // Totalização dos dados
+            let venda = 0
+            let cortesia = 0
+            let total = 0
+            let valor = 0
+
+            data.map(item => {
+                venda += item.venda
+                cortesia += item.cortesia
+                total += item.total
+                valor += item.valor
+            })
+
+            data.map(item => {
+                // Formata o valor
+                item.valor = Shared.moneyFormat(item.valor)
+
+                // Calcula o %
+                item.perc = Math.round(item.total / total * 100)
+            })
+
+            // Adiciona a totalização dos dados
+            data.push({
+                tipo: 'Total',
+                venda,
+                cortesia,
+                total,
+                valor: Shared.moneyFormat(valor),
+                perc: 100
+            })
+
+            return data
+        })
     }
 
 }

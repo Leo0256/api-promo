@@ -6,5 +6,6 @@ const router = Router()
 // Requerimento de token
 router.use(Auth.validadeAuth)
 router.get('/tipo_ingresso', Metrics.getTiposIngressos)
+router.get('/classes', Metrics.getClasses)
 
 export default router

@@ -26,4 +26,25 @@ export default class MetricsController {
         })
     }
 
+    /**
+     * Retorna os dados do gráfico de barras "Classes",
+     * tela de venda geral.
+     * 
+     * @param {Request} req 
+     * @param {Response} res 
+     */
+    static async getClasses(req, res) {
+        let { evento } = req.query
+
+        await Metrics.getClasses(evento)
+        .then(result => res.json(result))
+        .catch(e => {
+            console.error(e)
+            res.status(e?.status ?? 500).json({
+                error: 'Falha ao Obter o Gráfico "Classes"',
+                message: e?.message ?? null
+            })
+        })
+    }
+
 }
