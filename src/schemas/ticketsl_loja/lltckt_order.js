@@ -273,7 +273,8 @@ const lltckt_order = db_conn.define(
         chaveCopiaCola: {
             type: DataTypes.STRING
         }
-    }
+    },
+    { schema: process.env.DB_LOJA }
 )
 
 // foreign keys

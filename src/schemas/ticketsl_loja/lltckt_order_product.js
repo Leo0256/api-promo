@@ -56,7 +56,8 @@ const lltckt_order_product = db_conn.define(
         reward: {
             type: DataTypes.INTEGER(8)
         }
-    }
+    },
+    { schema: process.env.DB_LOJA }
 )
 
 // foreign keys

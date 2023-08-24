@@ -3,6 +3,7 @@
 import caixa from './caixa.js'
 import devolucao from './devolucao.js'
 import item from './item.js'
+import tbl_categorias_classes_ingressos from './tbl_categorias_classes_ingressos.js'
 import tbl_classes_ingressos from './tbl_classes_ingressos.js'
 import tbl_eventos from './tbl_eventos.js'
 import tbl_ingressos from './tbl_ingressos.js'
@@ -16,6 +17,7 @@ import venda from './venda.js'
  */
 const schemas = {
     tbl_eventos,
+    tbl_categorias_classes_ingressos,
     tbl_classes_ingressos,
     tbl_ingressos,
     tbl_pdvs,

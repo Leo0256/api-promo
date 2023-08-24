@@ -2,6 +2,7 @@ import { DataTypes } from 'sequelize'
 import db_conn from './db_conn.js'
 
 import tbl_eventos from './tbl_eventos.js'
+import tbl_categorias_classes_ingressos from './tbl_categorias_classes_ingressos.js'
 
 
 /**
@@ -9,6 +10,7 @@ import tbl_eventos from './tbl_eventos.js'
  * 
  * foreign keys:
  * - tbl_eventos (cla_evento → eve_cod)
+ * - tbl_categorias_classes_ingressos (cla_categoria_id → cat_cod)
  */
 const tbl_classes_ingressos = db_conn.define(
     'tbl_classes_ingressos',
@@ -130,5 +132,16 @@ tbl_classes_ingressos.belongsTo(tbl_eventos, {
     foreignKey: 'cla_evento',
     targetKey: 'eve_cod'
 })
+
+// tbl_categorias_classes_ingressos (cla_categoria_id → cat_cod)
+tbl_categorias_classes_ingressos.hasMany(tbl_classes_ingressos, {
+    foreignKey: 'cla_categoria_id',
+    sourceKey: 'cat_cod',
+    hooks: true
+});
+tbl_classes_ingressos.belongsTo(tbl_categorias_classes_ingressos, {
+    foreignKey: 'cla_categoria_id',
+    targetKey: 'cat_cod'
+});
 
 export default tbl_classes_ingressos
