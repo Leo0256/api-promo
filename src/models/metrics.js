@@ -85,8 +85,8 @@ export default class Metrics {
         const total = vendas + cortesias
 
         // Percentuais dos valores
-        let vendas_perc = (vendas / total * 100).toFixed(0)
-        let cortesias_perc = (cortesias / total * 100).toFixed(0)
+        let vendas_perc = parseInt((vendas / total * 100).toFixed(0))
+        let cortesias_perc = parseInt((cortesias / total * 100).toFixed(0))
 
         return {
             vendas,
