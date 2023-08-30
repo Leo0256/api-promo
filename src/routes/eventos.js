@@ -7,5 +7,6 @@ const router = Router()
 router.use(Auth.validadeAuth)
 router.get('/', Eventos.getEventos)
 router.get('/info', Eventos.getInfo)
+router.post('/detalhados', Eventos.getDetalhados)
 
 export default router

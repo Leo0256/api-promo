@@ -46,4 +46,37 @@ export default class EventosController {
             })
         })
     }
+
+    /**
+     * Retorna o relatório detalhado
+     * dos ingressos emitidos no evento.
+     * 
+     * Pode-se aplicar:
+     * - Busca direta, por PDV, POS ou código de barras;
+     * - Filtros debusca;
+     * - Paginação.
+     * 
+     * @param {Request} req 
+     * @param {Response} res 
+     */
+    static async getDetalhados(req, res) {
+        let {
+            evento,
+            filtros,
+            busca,
+            linhas,
+            pagina
+        } = req.body
+
+        await Eventos.getDetalhados(evento, filtros, busca, linhas, pagina)
+        .then(result => res.json(result))
+        .catch(e => {
+            console.error(e)
+            res.status(e?.status ?? 500).json({
+                error: 'Falha ao Obter as Vendas Detalhadas',
+                message: e?.message ?? null
+            })
+        })
+    }
+
 }
