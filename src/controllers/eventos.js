@@ -79,4 +79,24 @@ export default class EventosController {
         })
     }
 
+    /**
+     * Retorna os filtros do relatório detalhado.
+     * 
+     * @param {Request} req 
+     * @param {Response} res 
+     */
+    static async getDetalhadosFilter(req, res) {
+        let { evento } = req.query
+
+        await Eventos.getDetalhadosFilter(evento)
+        .then(result => res.json(result))
+        .catch(e => {
+            console.error(e)
+            res.status(e?.status ?? 500).json({
+                error: 'Falha ao Obter os Filtros',
+                message: e?.message ?? null
+            })
+        })
+    }
+
 }

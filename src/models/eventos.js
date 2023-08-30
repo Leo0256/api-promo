@@ -945,4 +945,89 @@ export default class Eventos {
         ))
     }
 
+    /**
+     * Retorna os filtros do relatório detalhado.
+     * 
+     * @param {number} evento Id do evento
+     * @returns 
+     */
+    static async getDetalhadosFilter(evento) {
+
+        // Obtêm os dados em paralélo
+        const promises = [
+            // PDVs e POS
+            await tbl_ingressos.findAll({
+                where: { ing_evento: evento },
+                attributes: [ 'ing_pos' ],
+                include: {
+                    model: tbl_pdvs,
+                    attributes: [ 'pdv_nome' ]
+                }
+            })
+            .then(result => {
+                let pdv = []  // Lista dos PDVs
+                let pos = []  // Lista dos POS
+    
+                result.map(ing => {
+                    // Adiciona na lista os PDVs
+                    if(!pdv.find(a => a === ing.tbl_pdv?.pdv_nome)) {
+                        pdv.push(ing.tbl_pdv?.pdv_nome)
+                    }
+    
+                    // Adiciona na lista os POS
+                    if(!pos.find(a => a === ing.ing_pos)) {
+                        pos.push(ing.ing_pos)
+                    }
+                })
+    
+                // Filtra os resultados vazios
+                pdv = pdv.filter(a => !!a)
+                pos = pos.filter(a => !!a)
+    
+                // Adiciona nos PDVs as vendas pelo site
+                pdv.unshift('Quero Ingresso - Internet')
+    
+                return { pdv, pos }
+            }),
+
+            // Tipo/classe de ingresso
+            await tbl_classes_ingressos.findAll({
+                where: { cla_evento: evento },
+                attributes: [ 'cla_nome' ]
+            })
+            .then(result => ({
+                // Lista das classes de ingresso
+                tipo: result.map(a => a.cla_nome)
+            }))
+        ]
+
+        // Situação/status dos ingressos
+        const situacao = [
+            'AGUARD. PAGAMENTO',
+            'APROVADO',
+            'ESTORNADO',
+            'NÃO APROVADO',
+            'AGUARD. PIX',
+            '-'
+        ]
+
+        // Retorna os dados após terminar as promises
+        return await Promise.all(promises).then(result => {
+            const {
+                pdv, pos
+            } = result.find(a => !a.tipo)
+
+            const {
+                tipo
+            } = result.find(a => !!a.tipo)
+
+            return {
+                pdv,
+                pos,
+                situacao,
+                tipo
+            }
+        })
+    }
+
 }
