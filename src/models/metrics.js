@@ -5,6 +5,7 @@ const {
     tbl_ingressos,
     tbl_classes_ingressos,
     tbl_categorias_classes_ingressos,
+    tbl_itens_classes_ingressos,
 } = schemas.ticketsl_promo
 
 const {
@@ -269,6 +270,117 @@ export default class Metrics {
             })
 
             return data
+        })
+    }
+
+    /**
+     * Retorna os dados do gráfico de barras "Vendas por Lote",
+     * tela de venda geral.
+     * 
+     * @param {number} evento Id do evento
+     * @returns 
+     */
+    static async getLotes(evento) {
+        // Obtêm os ingressos vendidos do evento
+        return await tbl_ingressos.findAll({
+            where: {
+                ing_evento: evento,
+                ing_status: [ 1, 2 ]
+            },
+            attributes: [
+                'ing_valor',
+                'ing_pdv'
+            ],
+            include: [
+                // Lote
+                {
+                    model: tbl_itens_classes_ingressos,
+                    attributes: [ 'itc_prioridade' ]
+                },
+
+                // Ingresso no site
+                {
+                    model: lltckt_order_product_barcode,
+                    include: {
+                        model: lltckt_order_product,
+                        attributes: [
+                            'total',
+                            'quantity'
+                        ],
+                        required: true,
+                        include: {
+                            model: lltckt_order,
+                            where: { order_status_id: 5 },
+                            required: true,
+                            attributes: [ 'order_id' ]
+                        }
+                    }
+                }
+            ]
+        })
+        .then(data => {
+            // Filtra pelos ingressos vendidos
+            const ingressos = data.filter(b => (
+                !!b.ing_pdv || !!b.lltckt_order_product_barcode
+            ))
+
+            // Lista das vendas dos lotes
+            let lotes = []
+
+            ingressos.map(ing => {
+                // N° do Lote
+                let lote = ing.tbl_itens_classes_ingresso.itc_prioridade
+
+                // Valor do ingresso
+                let valor = parseFloat(ing.ing_valor)
+
+                // Verifica se o lote já está na lista
+                let index = lotes.findIndex(a => a.lote === lote)
+
+                // Se o lote estiver na lista, atualiza seus dados
+                if(index >= 0) {
+                    lotes[index].valor += valor
+                    lotes[index].quant++
+                }
+
+                // Se o lote não estiver na lista, faz o registro
+                else {
+                    lotes.push({
+                        lote,
+                        valor,
+                        quant: 1
+                    })
+                }
+            })
+
+            // Ordena os lotes pela prioridade
+            lotes.sort((a,b) => a.lote - b.lote)
+
+            // Totaliza os valores dos lotes
+            let total_valor = lotes.reduce((a, b) => a + b.valor, 0)
+            let total_quant = lotes.reduce((a, b) => a + b.quant, 0)
+
+            lotes.map(lote => {
+                // Formata o n° do lote
+                lote.lote = `${lote.lote}° Lote`
+
+                // Formata o valor vendido do lote
+                lote.valor = Shared.moneyFormat(lote.valor)
+
+                // Calcula o % de venda do lote
+                lote.perc = Math.round(lote.quant / total_quant * 100)
+            })
+
+            // Adiciona na lista a totalização dos valores dos lotes
+            lotes.push({
+                lote: 'Total',
+                valor: Shared.moneyFormat(total_valor),
+                quant: total_quant,
+                perc: 100
+            })
+
+            // Retorna as vendas dos lotes
+            return lotes
         })
     }
 
