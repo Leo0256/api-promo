@@ -287,9 +287,10 @@ export default class Eventos {
                         // Calcula o total de cortesias
                         cortesias_pdv_total++
 
-                        // Calcula o total em taxas
-                        taxas_pdv_total += parseFloat(ingresso.ing_taxa)
                     }
+
+                    // Calcula o total em taxas
+                    taxas_pdv_total += parseFloat(ingresso.ing_taxa)
                 })
 
                 return {
