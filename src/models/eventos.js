@@ -710,10 +710,11 @@ export default class Eventos {
             - ou por Código de barras do ingresso.
         */
         if(busca) {
+            let find_aux = busca.trim().toUpperCase()
             ingressos = ingressos.filter(a => (
-                a.pdv === busca ||
-                a.pos === busca ||
-                a.cod_barras === busca
+                a.pdv.toUpperCase().includes(find_aux) ||
+                `${a.pos}`.includes(find_aux) ||
+                `${a.cod_barras}`.includes(find_aux)
             ))
         }
 
