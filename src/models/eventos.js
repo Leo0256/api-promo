@@ -191,7 +191,16 @@ export default class Eventos {
                         'quantity',
                         'total',
                         'tax'
-                    ]
+                    ],
+                    /*
+                        Algumas rows estão quebradas, sendo necessário um filtro forçado
+                        entre as 'orders' com ligação com algum registro de ingressos
+                        no schema 'ticketsl_promo'
+                    */
+                    include: {
+                        model: lltckt_order_product_barcode,
+                        required: true
+                    }
                 }
             })
             .then(result => {
@@ -398,7 +407,17 @@ export default class Eventos {
                             attributes: [ 'payment_method' ],
                             include: {
                                 model: lltckt_order_product,
-                                attributes: [ 'total' ]
+                                attributes: [ 'total' ],
+                                required: true,
+                                /*
+                                    Algumas rows estão quebradas, sendo necessário um filtro forçado
+                                    entre as 'orders' com ligação com algum registro de ingressos
+                                    no schema 'ticketsl_promo'
+                                */
+                                include: {
+                                    model: lltckt_order_product_barcode,
+                                    required: true
+                                }
                             }
                         })
                         .then(orders => {

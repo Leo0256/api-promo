@@ -11,6 +11,7 @@ const {
     lltckt_order,
     lltckt_product,
     lltckt_order_product,
+    lltckt_order_product_barcode,
 } = schemas.ticketsl_loja
 
 /**
@@ -39,7 +40,16 @@ export default class Metrics {
                 where: {
                     total: { $not: 0 }
                 },
-                attributes: [ 'quantity' ]
+                attributes: [ 'quantity' ],
+                /*
+                    Algumas rows estão quebradas, sendo necessário um filtro forçado
+                    entre as 'orders' com ligação com algum registro de ingressos
+                    no schema 'ticketsl_promo'
+                */
+                include: {
+                    model: lltckt_order_product_barcode,
+                    required: true
+                }
             }
         })
         .then(result => (
@@ -142,11 +152,23 @@ export default class Metrics {
                             'quantity',
                             'total'
                         ],
-                        include: {
-                            model: lltckt_order,
-                            attributes: ['order_id'],
-                            where: { order_status_id: 5 }
-                        }
+                        include: [
+                            {
+                                model: lltckt_order,
+                                attributes: ['order_id'],
+                                where: { order_status_id: 5 }
+                            },
+
+                            /*
+                                Algumas rows estão quebradas, sendo necessário um filtro forçado
+                                entre as 'orders' com ligação com algum registro de ingressos
+                                no schema 'ticketsl_promo'
+                            */
+                            {
+                                model: lltckt_order_product_barcode,
+                                required: true
+                            }
+                        ]
                     }
                 }
             ]
