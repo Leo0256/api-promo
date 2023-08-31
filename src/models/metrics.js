@@ -29,75 +29,77 @@ export default class Metrics {
      * @returns 
      */
     static async getTiposIngressos(evento, categoria) {
-        // Quantidade de ingressos vendidos no site
-        const vendas_site = await lltckt_order.findAll({
-            where: {
-                category_id: categoria,
-                order_status_id: 5
-            },
-            attributes: [ 'category_id' ],
-            include: {
-                model: lltckt_order_product,
-                where: {
-                    total: { $not: 0 }
-                },
-                attributes: [ 'quantity' ],
-                /*
-                    Algumas rows estão quebradas, sendo necessário um filtro forçado
-                    entre as 'orders' com ligação com algum registro de ingressos
-                    no schema 'ticketsl_promo'
-                */
-                include: {
-                    model: lltckt_order_product_barcode,
-                    required: true
-                }
-            }
-        })
-        .then(result => (
-            result.reduce((prev, next) => {
-                let quant = next.getDataValue('lltckt_order_product').quantity
-                return prev + quant
-            }, 0)
-        ))
 
         const {
-            // Quantidade de ingressos vendidos nos PDVs
-            vendas_pdv,
+            // Quantidade de ingressos vendidos
+            vendas,
 
-            // Total de cortesias
+            // Quantidade de cortesias
             cortesias
         } = await tbl_ingressos.findAll({
             where: {
                 ing_evento: evento,
-                ing_pdv: { $not: null },
-                ing_status: { $in: [ 1, 2 ] }
+                ing_status: [ 1, 2 ]
             },
-            attributes: [ 'ing_valor' ]
+            attributes: [
+                'ing_valor',
+                'ing_pdv'
+            ],
+            include: {
+                model: lltckt_order_product_barcode,
+                include: {
+                    model: lltckt_order_product,
+                    required: true,
+                    attributes: [ 'total' ],
+                    include: {
+                        model: lltckt_order,
+                        required: true,
+                        where: { order_status_id: 5 },
+                        attributes: [ 'order_status_id' ]
+                    }
+                }
+            }
         })
-        .then(result => {
-            let vendas_pdv = result.filter(a => (
-                parseFloat(a.getDataValue('ing_valor')) != 0
-            )).length
+        .then(data => {
+            // Filtra pelos ingressos vendidos
+            const ingressos = data.filter(b => (
+                !!b.ing_pdv || !!b.lltckt_order_product_barcode
+            ))
 
-            let cortesias = result.filter(a => (
-                parseFloat(a.getDataValue('ing_valor')) == 0
-            )).length
+            // Quantidade de ingressos vendidos
+            let vendas = 0
+
+            // Quantidade de cortesias
+            let cortesias = 0
+
+            ingressos.map(ing => {
+                // Auxiliar do ingresso no site
+                let aux = ing.lltckt_order_product_barcode?.lltckt_order_product
+
+                // Ingresso vendido
+                if(
+                    parseFloat(ing.ing_valor) != 0 ??
+                    parseFloat(aux?.total ?? 1) != 0
+                ) {
+                    vendas++
+                }
+
+                // Cortesia
+                else cortesias++
+            })
 
             return {
-                vendas_pdv,
+                vendas,
                 cortesias
             }
         })
-
-        // Total de ingressos vendidos
-        const vendas = vendas_pdv + vendas_site
 
         // Total de ingressos + cortesias
         const total = vendas + cortesias
 
         // Percentuais dos valores
-        let vendas_perc = parseInt((vendas / total * 100).toFixed(0))
-        let cortesias_perc = parseInt((cortesias / total * 100).toFixed(0))
+        let vendas_perc = Math.round(vendas / total * 100)
+        let cortesias_perc = Math.round(cortesias / total * 100)
 
         return {
             vendas,
@@ -131,7 +133,7 @@ export default class Metrics {
                     model: tbl_ingressos,
                     where: {
                         ing_pdv: { $not: null },
-                        ing_status: { $in: [ 1, 2 ] }
+                        ing_status: [ 1, 2 ]
                     },
                     required: false,
                     separate: true,
@@ -149,7 +151,6 @@ export default class Metrics {
                         model: lltckt_order_product,
                         required: true,
                         attributes: [
-                            'order_id',
                             'quantity',
                             'total'
                         ],
@@ -269,6 +270,7 @@ export default class Metrics {
                 perc: 100
             })
 
+            // Retorna os dados das classes
             return data
         })
     }

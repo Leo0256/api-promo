@@ -13,9 +13,9 @@ export default class MetricsController {
      * @param {Response} res 
      */
     static async getTiposIngressos(req, res) {
-        let { evento, categoria } = req.query
+        let { evento } = req.query
 
-        await Metrics.getTiposIngressos(evento, categoria)
+        await Metrics.getTiposIngressos(evento)
         .then(result => res.json(result))
         .catch(e => {
             console.error(e)
