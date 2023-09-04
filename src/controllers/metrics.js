@@ -68,4 +68,23 @@ export default class MetricsController {
         })
     }
 
+    /**
+     * 
+     * @param {Request} req 
+     * @param {Response} res 
+     */
+    static async getRankingPdvs(req, res) {
+        let { evento } = req.query
+
+        await Metrics.getRankingPdvs(evento)
+        .then(result => res.json(result))
+        .catch(e => {
+            console.error(e)
+            res.status(e?.status ?? 500).json({
+                error: 'Falha ao Obter a Tabela "Ranking de Pdvs"',
+                message: e?.message ?? null
+            })
+        })
+    }
+
 }

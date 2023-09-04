@@ -6,6 +6,7 @@ const {
     tbl_classes_ingressos,
     tbl_categorias_classes_ingressos,
     tbl_itens_classes_ingressos,
+    tbl_pdvs,
 } = schemas.ticketsl_promo
 
 const {
@@ -383,6 +384,171 @@ export default class Metrics {
 
             // Retorna as vendas dos lotes
             return lotes
+        })
+    }
+
+    /**
+     * Retorna os dados da tabela "Ranking de Pdvs",
+     * tela de venda geral.
+     * 
+     * @param {number} evento Id do evento
+     * @returns 
+     */
+    static async getRankingPdvs(evento) {
+        // Obtêm os ingressos vendidos do evento
+        return await tbl_ingressos.findAll({
+            where: { ing_evento: evento },
+            attributes: [
+                'ing_status',
+                'ing_valor',
+                'ing_pdv',
+                'ing_data_compra'
+            ],
+            include: [
+                // PDV
+                {
+                    model: tbl_pdvs,
+                    attributes: [ 'pdv_nome' ]
+                },
+
+                // Ingresso no site
+                {
+                    model: lltckt_order_product_barcode,
+                    include: {
+                        model: lltckt_order_product,
+                        attributes: [
+                            'order_id'
+                        ],
+                        required: true,
+                        include: {
+                            model: lltckt_order,
+                            required: true,
+                            attributes: [ 'order_status_id' ]
+                        }
+                    }
+                }
+            ]
+        })
+        .then(data => {
+            // Filtra pelos ingressos vendidos
+            const ingressos = data.filter(b => (
+                !!b.ing_pdv || !!b.lltckt_order_product_barcode
+            ))
+
+            // Lista dos PDVs
+            let pdvs = []
+
+            ingressos.map(ing => {
+                // Nome do PDV
+                let pdv = null
+                if(!ing.ing_pdv) {
+                    pdv = 'Quero Ingresso - Internet'
+                }
+                else {
+                    pdv = ing.tbl_pdv.pdv_nome
+                }
+
+                // Valor do ingresso
+                let valor = parseFloat(ing.ing_valor)
+
+                // Dia atual
+                let date_today = new Date()
+                date_today.setUTCHours(0,0,0,0)
+
+                // Auxiliar do ingresso no site
+                let site_aux = ing.lltckt_order_product_barcode?.lltckt_order_product?.lltckt_order
+
+                // Indicador de ingresso vendido
+                let vendido = !!site_aux
+                    ? site_aux.order_status_id === 5 // Vendido no site
+                    : !![1,2].find(a => a == ing.ing_status) // Vendido nos PDVs
+
+                // Ingresso vendido hoje
+                let hoje = date_today <= new Date(ing.ing_data_compra)
+
+                // Verifica se o PDV está na lista
+                let index = pdvs.findIndex(a => a.nome === pdv)
+
+                // Se o PDV estiver na lista, atualiza seus dados
+                if(index >= 0) {
+                    // Se o ingresso foi vendido, contabiliza na lista
+                    if(vendido) {
+                        // Ingresso vendido hoje
+                        if(hoje){
+                            pdvs[index].quant_hoje++
+                            pdvs[index].valor_hoje += valor
+                        }
+
+                        pdvs[index].quant++
+                        pdvs[index].valor += valor
+                    }
+                }
+
+                // Se o PDV não estiver na lista, faz o registro
+                else {
+                    let quant_site = 0
+                    let valor_site = 0
+                    let quant_site_hoje = 0
+                    let valor_site_hoje = 0
+
+                    // Se o ingresso foi vendido, contabiliza na lista
+                    if(vendido) {
+                        // Ingresso vendido hoje
+                        if(hoje) {
+                            quant_site_hoje++
+                            valor_site_hoje += valor
+                        }
+
+                        quant_site++
+                        valor_site += valor
+                    }
+
+                    pdvs.push({
+                        nome: pdv,
+                        quant: quant_site,
+                        valor: valor_site,
+                        quant_hoje: quant_site_hoje,
+                        valor_hoje: valor_site_hoje
+                    })
+                }
+            })
+
+            // Totaliza os valores dos PDVs
+            let total = pdvs.reduce((prev, next) => {
+                prev.quant += next.quant
+                prev.valor += next.valor
+                prev.quant_hoje += next.quant_hoje
+                prev.valor_hoje += next.valor_hoje
+
+                return prev
+            }, {
+                quant: 0,
+                valor: 0,
+                quant_hoje: 0,
+                valor_hoje: 0
+            })
+
+            pdvs.map(pdv => {
+                // Formata o valor vendido do PDV
+                pdv.valor = Shared.moneyFormat(pdv.valor)
+                pdv.valor_hoje = Shared.moneyFormat(pdv.valor_hoje)
+
+                // Calcula o % de venda do PDV
+                pdv.perc = Math.round(pdv.quant / total.quant * 100)
+            })
+            
+            // Formata o total vendido
+            total.valor = Shared.moneyFormat(total.valor)
+            total.valor_hoje = Shared.moneyFormat(total.valor_hoje)
+
+            // Adiciona na lista a totalização dos valores dos PDVs
+            pdvs.push({
+                nome: 'Total',
+                ...total,
+                perc: 100
+            })
+
+            return pdvs
         })
     }
 
