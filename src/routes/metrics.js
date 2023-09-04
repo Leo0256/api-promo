@@ -11,5 +11,6 @@ router.get('/lotes', Metrics.getLotes)
 router.get('/pdvs', Metrics.getRankingPdvs)
 router.get('/mpgto', Metrics.getFaturamento)
 router.get('/periodo', Metrics.getPeriodico)
+router.get('/horario_venda', Metrics.getHorarioVenda)
 
 export default router

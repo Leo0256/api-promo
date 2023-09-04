@@ -129,4 +129,25 @@ export default class MetricsController {
         })
     }
 
+    /**
+     * Retorna os dados do gráfico "Horário x Canal de Venda",
+     * tela de venda geral.
+     * 
+     * @param {Request} req 
+     * @param {Response} res 
+     */
+    static async getHorarioVenda(req, res) {
+        let { evento } = req.query
+
+        await Metrics.getHorarioVenda(evento)
+        .then(result => res.json(result))
+        .catch(e => {
+            console.error(e)
+            res.status(e?.status ?? 500).json({
+                error: 'Falha ao Obter o Gráfico "Horário x Canal de Venda"',
+                message: e?.message ?? null
+            })
+        })
+    }
+
 }

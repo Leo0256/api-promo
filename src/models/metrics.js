@@ -798,4 +798,101 @@ export default class Metrics {
         })
     }
 
+    /**
+     * Retorna os dados do gráfico "Horário x Canal de Venda",
+     * tela de venda geral.
+     * 
+     * @param {number} evento 
+     * @returns 
+     */
+    static async getHorarioVenda(evento) {
+        // Obtêm os ingressos vendidos do evento
+        return await tbl_ingressos.findAll({
+            where: {
+                ing_evento: evento,
+                ing_status: [ 1, 2 ],
+                ing_valor: { $gt: 0 }
+            },
+            attributes: [
+                'ing_data_compra',
+                'ing_pdv'
+            ],
+            order: [['ing_data_compra', 'ASC']],
+            include: [
+                // Ingresso no site
+                {
+                    model: lltckt_order_product_barcode,
+                    include: {
+                        model: lltckt_order_product,
+                        attributes: [
+                            'order_id'
+                        ],
+                        required: true,
+                        include: {
+                            model: lltckt_order,
+                            required: true,
+                            //where: { order_status_id: 5 },
+                            attributes: [ 'order_id' ]
+                        }
+                    }
+                }
+            ]
+        })
+        .then(data => {
+            // Filtra pelos ingressos vendidos
+            const ingressos = data.filter(b => (
+                !!b.ing_pdv || !!b.lltckt_order_product_barcode
+            ))
+
+            // Lista dos horários
+            let horarios = []
+
+            ingressos.map(ing => {
+                // Horário da venda
+                let date_aux = new Date(ing.ing_data_compra)
+                let horario = `${date_aux.getHours()}:00`
+
+                // Verifica se o horário está na lista
+                let index = horarios.findIndex(a => a.horario === horario)
+
+                // Se o horário estiver na lista, atualiza seus dados
+                if(index >= 0) {
+                    // Venda pelo PDV
+                    if(!!ing.ing_pdv)
+                        horarios[index].pdv++
+
+                    // Venda pelo site
+                    else
+                        horarios[index].web++
+                }
+
+                // Se o horário não estiver na lista, faz o registro
+                else {
+                    let pdv = 0
+                    let web = 0
+
+                    // Venda pelo PDV
+                    if(!!ing.ing_pdv)
+                        pdv++
+
+                    // Venda pelo site
+                    else
+                        web++
+
+                    horarios.push({
+                        horario,
+                        pdv, web
+                    })
+                }
+            })
+
+            // Organiza a lista pelos horários
+            horarios.sort((a, b) => (
+                parseInt(a.horario) - parseInt(b.horario)
+            ))
+
+            return horarios
+        })
+    }
+
 }
