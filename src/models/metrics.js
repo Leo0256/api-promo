@@ -7,6 +7,7 @@ const {
     tbl_categorias_classes_ingressos,
     tbl_itens_classes_ingressos,
     tbl_pdvs,
+    tbl_eventos,
 } = schemas.ticketsl_promo
 
 const {
@@ -681,6 +682,119 @@ export default class Metrics {
             faturamentos.push(total)
 
             return faturamentos
+        })
+    }
+
+    /**
+     * Retorna os dados do gráfico "Gráfico Periódico",
+     * tela de venda geral.
+     * 
+     * @param {number} evento Id do evento
+     * @returns 
+     */
+    static async getPeriodico(evento) {
+        // Obtêm a data de início do evento
+        const eve_inicio = await tbl_eventos.findByPk(evento, {
+            attributes: [ 'eve_data' ]
+        })
+        .then(a => a?.eve_data)
+
+        // Obtêm os ingressos vendidos do evento
+        return await tbl_ingressos.findAll({
+            where: {
+                ing_evento: evento,
+                ing_status: [ 1, 2 ]
+            },
+            attributes: [
+                'ing_data_compra',
+                'ing_valor',
+                'ing_pdv'
+            ],
+            include: [
+                // Ingresso no site
+                {
+                    model: lltckt_order_product_barcode,
+                    include: {
+                        model: lltckt_order_product,
+                        attributes: [
+                            'order_id'
+                        ],
+                        required: true,
+                        include: {
+                            model: lltckt_order,
+                            required: true,
+                            where: { order_status_id: 5 },
+                            attributes: [ 'order_id' ]
+                        }
+                    }
+                }
+            ]
+        })
+        .then(data => {
+            // Filtra pelos ingressos vendidos
+            const ingressos = data.filter(b => (
+                !!b.ing_pdv || !!b.lltckt_order_product_barcode
+            ))
+
+            // Lista dos períodos
+            let periodos = []
+
+            ingressos.map(ing => {
+                // Valor do ingresso
+                let valor = parseFloat(ing.ing_valor)
+
+                // Dias até a data do evento
+                let dia = Shared.calcDaysBetween(eve_inicio, ing.ing_data_compra)
+
+                // Verifica se o dia está na lista
+                let index = periodos.findIndex(a => a.dia === dia)
+
+                // Se o dia estiver na lista, atualiza seus dados
+                if(index >= 0) {
+                    // Venda sem valor == cortesia
+                    if(valor !== 0) periodos[index].venda++
+                    else periodos[index].cortesia++
+
+                    periodos[index].valor += valor
+                    periodos[index].total++
+                }
+
+                // Se o dia não estiver na lista, faz o registro
+                else {
+                    let venda = 0
+                    let cortesia = 0
+
+                    // Venda sem valor == cortesia
+                    if(valor !== 0) venda++
+                    else cortesia++
+
+                    periodos.push({
+                        dia,
+                        venda,
+                        cortesia,
+                        valor,
+                        total: venda + cortesia
+                    })
+                }
+            })
+
+            // Organiza os dados de acordo com as datas
+            periodos.sort((a, b) => b.dia - a.dia)
+
+            // Total acumulado de ingressos
+            let acumulado_quant = 0 // Quantidade vendida
+            let acumulado_valor = 0 // Valor faturado
+
+            // Registra o acumulo
+            periodos.map(periodo => {
+                acumulado_quant += periodo.total
+                acumulado_valor += periodo.valor
+
+                periodo.acumulado_quant = acumulado_quant
+                periodo.acumulado_valor = acumulado_valor
+            })
+
+            return periodos
         })
     }
 
