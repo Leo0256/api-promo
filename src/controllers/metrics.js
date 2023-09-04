@@ -69,6 +69,8 @@ export default class MetricsController {
     }
 
     /**
+     * Retorna os dados da tabela "Ranking de Pdvs",
+     * tela de venda geral.
      * 
      * @param {Request} req 
      * @param {Response} res 
