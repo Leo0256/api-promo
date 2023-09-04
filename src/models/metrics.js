@@ -552,4 +552,136 @@ export default class Metrics {
         })
     }
 
+    /**
+     * Retorna os dados do gráfico de barras "Faturamento por Meio de Pagamento",
+     * tela de venda geral.
+     * 
+     * @param {number} evento Id do evento
+     * @returns 
+     */
+    static async getFaturamento(evento) {
+        // Obtêm os ingressos vendidos do evento
+        return await tbl_ingressos.findAll({
+            where: {
+                ing_evento: evento,
+                ing_status: [ 1, 2 ]
+            },
+            attributes: [
+                'ing_mpgto',
+                'ing_valor',
+                'ing_pdv'
+            ],
+            include: [
+                // Ingresso no site
+                {
+                    model: lltckt_order_product_barcode,
+                    include: {
+                        model: lltckt_order_product,
+                        attributes: [
+                            'order_id'
+                        ],
+                        required: true,
+                        include: {
+                            model: lltckt_order,
+                            required: true,
+                            where: { order_status_id: 5 },
+                            attributes: [ 'payment_method' ]
+                        }
+                    }
+                }
+            ]
+        })
+        .then(data => {
+            // Filtra pelos ingressos vendidos
+            const ingressos = data.filter(b => (
+                !!b.ing_pdv || !!b.lltckt_order_product_barcode
+            ))
+
+            let faturamentos = [
+                {
+                    aux: [1], // Auxiliar de pesquisa
+                    nome: 'Dinheiro',
+                    quant: 0,
+                    valor: 0,
+                    perc: 0
+                },
+                {
+                    aux: ['PagSeguro',2], // Auxiliar de pesquisa
+                    nome: 'Crédito',
+                    quant: 0,
+                    valor: 0,
+                    perc: 0
+                },
+                {
+                    aux: [3], // Auxiliar de pesquisa
+                    nome: 'Débito',
+                    quant: 0,
+                    valor: 0,
+                    perc: 0
+                },
+                {
+                    aux: ['PIX'], // Auxiliar de pesquisa
+                    nome: 'PIX',
+                    quant: 0,
+                    valor: 0,
+                    perc: 0
+                }
+            ]
+
+            ingressos.map(ing => {
+                // Valor do ingresso
+                let valor = parseFloat(ing.ing_valor)
+
+                // Auxiliar do ingresso no site
+                let site_aux = ing.lltckt_order_product_barcode?.lltckt_order_product?.lltckt_order
+
+                // Meio de pagamento
+                let meio_pgto = !!site_aux
+                    ? site_aux.payment_method
+                    : ing.ing_mpgto
+                
+                // Procura pelo meio de pagamento
+                let index = faturamentos.findIndex(a => a.aux.includes(meio_pgto))
+
+                // Contabiliza a venda
+                if(index >= 0) {
+                    faturamentos[index].quant++
+                    faturamentos[index].valor += valor
+                }
+            })
+
+            // Totaliza as vendas
+            let total = faturamentos.reduce((prev, next) => {
+                prev.quant += next.quant
+                prev.valor += next.valor
+
+                // Remove as variáveis auxiliares
+                delete next.aux
+
+                return prev
+            }, {
+                nome: 'Total',
+                quant: 0,
+                valor: 0,
+                perc: 100
+            })
+
+            faturamentos.map(fat => {
+                // Formata o valor vendido
+                fat.valor = Shared.moneyFormat(fat.valor)
+
+                // Calcula o % de venda
+                fat.perc = Math.round(fat.quant / total.quant * 100)
+            })
+
+            // Formata o total vendido
+            total.valor = Shared.moneyFormat(total.valor)
+
+            // Adiciona na lista a totalização dos valores
+            faturamentos.push(total)
+
+            return faturamentos
+        })
+    }
+
 }
