@@ -23,45 +23,109 @@ const {
 export default class Metrics {
 
     /**
+     * Retorna a lista dos ingressos emitidos do evento informado.
+     * 
+     * @param {number} evento Id do evento
+     * @param {boolean} somente_vendidos Filtra por apenas os ingressos vendidos
+     * @param {boolean?} sem_cortesias Remove as cortesias na busca
+     * @returns 
+     */
+    static async getIngressos(evento, somente_vendidos, sem_cortesias) {
+        // Filtro do ingressos vendidos
+        const vendidos = {
+            ing: {},
+            order: {}
+        }
+
+        // Filtro das cortesias
+        const cortesias = {
+            ing: {},
+            order: {}
+        }
+
+        // Define o filtro para somente os ingressos vendidos
+        if(somente_vendidos) {
+            vendidos.ing = { ing_status: [ 1, 2 ] }
+            vendidos.order = { order_status_id: 5 }
+        }
+
+        // Define o filtro para remover as cortesias
+        if(sem_cortesias) {
+            cortesias.ing = { ing_valor: { $gt: 0 } }
+            cortesias.order = { total: { $gt: 0 } }
+        }
+
+        // Retorna a lista dos ingressos
+        return await tbl_ingressos.findAll({
+            where: {
+                ing_evento: evento,
+                ...vendidos.ing,
+                ...cortesias.ing
+            },
+            attributes: [
+                'ing_status',
+                'ing_mpgto',
+                'ing_valor',
+                'ing_pdv',
+                'ing_data_compra'
+            ],
+            order: [['ing_data_compra', 'ASC']],
+            include: [
+                // PDV
+                {
+                    model: tbl_pdvs,
+                    attributes: [ 'pdv_nome' ]
+                },
+
+                // Lote
+                {
+                    model: tbl_itens_classes_ingressos,
+                    attributes: [ 'itc_prioridade' ]
+                },
+
+                // Ingresso no site
+                {
+                    model: lltckt_order_product_barcode,
+                    include: {
+                        model: lltckt_order_product,
+                        required: true,
+                        attributes: [
+                            'total',
+                            'quantity'
+                        ],
+                        include: {
+                            model: lltckt_order,
+                            required: true,
+                            where: {
+                                ...vendidos.order,
+                                ...cortesias.order
+                            },
+                            attributes: [ 
+                                'order_status_id',
+                                'payment_method'
+                            ]
+                        }
+                    }
+                }
+            ]
+        })
+    }
+
+    /**
      * Retorna os dados do gráfico "Tipos de Ingressos",
      * tela de venda geral.
      * 
      * @param {number} evento Id do evento
-     * @param {number} categoria Id do evento no site
      * @returns 
      */
-    static async getTiposIngressos(evento, categoria) {
-
+    static async getTiposIngressos(evento) {
         const {
             // Quantidade de ingressos vendidos
             vendas,
 
             // Quantidade de cortesias
             cortesias
-        } = await tbl_ingressos.findAll({
-            where: {
-                ing_evento: evento,
-                ing_status: [ 1, 2 ]
-            },
-            attributes: [
-                'ing_valor',
-                'ing_pdv'
-            ],
-            include: {
-                model: lltckt_order_product_barcode,
-                include: {
-                    model: lltckt_order_product,
-                    required: true,
-                    attributes: [ 'total' ],
-                    include: {
-                        model: lltckt_order,
-                        required: true,
-                        where: { order_status_id: 5 },
-                        attributes: [ 'order_status_id' ]
-                    }
-                }
-            }
-        })
+        } = await this.getIngressos(evento, true)
         .then(data => {
             // Filtra pelos ingressos vendidos
             const ingressos = data.filter(b => (
@@ -286,42 +350,7 @@ export default class Metrics {
      */
     static async getLotes(evento) {
         // Obtêm os ingressos vendidos do evento
-        return await tbl_ingressos.findAll({
-            where: {
-                ing_evento: evento,
-                ing_status: [ 1, 2 ]
-            },
-            attributes: [
-                'ing_valor',
-                'ing_pdv'
-            ],
-            include: [
-                // Lote
-                {
-                    model: tbl_itens_classes_ingressos,
-                    attributes: [ 'itc_prioridade' ]
-                },
-
-                // Ingresso no site
-                {
-                    model: lltckt_order_product_barcode,
-                    include: {
-                        model: lltckt_order_product,
-                        attributes: [
-                            'total',
-                            'quantity'
-                        ],
-                        required: true,
-                        include: {
-                            model: lltckt_order,
-                            where: { order_status_id: 5 },
-                            required: true,
-                            attributes: [ 'order_id' ]
-                        }
-                    }
-                }
-            ]
-        })
+        return await this.getIngressos(evento, true)
         .then(data => {
             // Filtra pelos ingressos vendidos
             const ingressos = data.filter(b => (
@@ -397,39 +426,7 @@ export default class Metrics {
      */
     static async getRankingPdvs(evento) {
         // Obtêm os ingressos vendidos do evento
-        return await tbl_ingressos.findAll({
-            where: { ing_evento: evento },
-            attributes: [
-                'ing_status',
-                'ing_valor',
-                'ing_pdv',
-                'ing_data_compra'
-            ],
-            include: [
-                // PDV
-                {
-                    model: tbl_pdvs,
-                    attributes: [ 'pdv_nome' ]
-                },
-
-                // Ingresso no site
-                {
-                    model: lltckt_order_product_barcode,
-                    include: {
-                        model: lltckt_order_product,
-                        attributes: [
-                            'order_id'
-                        ],
-                        required: true,
-                        include: {
-                            model: lltckt_order,
-                            required: true,
-                            attributes: [ 'order_status_id' ]
-                        }
-                    }
-                }
-            ]
-        })
+        return await this.getIngressos(evento, false)
         .then(data => {
             // Filtra pelos ingressos vendidos
             const ingressos = data.filter(b => (
@@ -537,6 +534,9 @@ export default class Metrics {
                 // Calcula o % de venda do PDV
                 pdv.perc = Math.round(pdv.quant / total.quant * 100)
             })
+
+            // Organiza os PDVs pela porcentagem de vendas
+            pdvs.sort((a, b) => b.perc - a.perc)
             
             // Formata o total vendido
             total.valor = Shared.moneyFormat(total.valor)
@@ -562,36 +562,7 @@ export default class Metrics {
      */
     static async getFaturamento(evento) {
         // Obtêm os ingressos vendidos do evento
-        return await tbl_ingressos.findAll({
-            where: {
-                ing_evento: evento,
-                ing_status: [ 1, 2 ]
-            },
-            attributes: [
-                'ing_mpgto',
-                'ing_valor',
-                'ing_pdv'
-            ],
-            include: [
-                // Ingresso no site
-                {
-                    model: lltckt_order_product_barcode,
-                    include: {
-                        model: lltckt_order_product,
-                        attributes: [
-                            'order_id'
-                        ],
-                        required: true,
-                        include: {
-                            model: lltckt_order,
-                            required: true,
-                            where: { order_status_id: 5 },
-                            attributes: [ 'payment_method' ]
-                        }
-                    }
-                }
-            ]
-        })
+        return await this.getIngressos(evento, true)
         .then(data => {
             // Filtra pelos ingressos vendidos
             const ingressos = data.filter(b => (
@@ -700,36 +671,7 @@ export default class Metrics {
         .then(a => a?.eve_data)
 
         // Obtêm os ingressos vendidos do evento
-        return await tbl_ingressos.findAll({
-            where: {
-                ing_evento: evento,
-                ing_status: [ 1, 2 ]
-            },
-            attributes: [
-                'ing_data_compra',
-                'ing_valor',
-                'ing_pdv'
-            ],
-            include: [
-                // Ingresso no site
-                {
-                    model: lltckt_order_product_barcode,
-                    include: {
-                        model: lltckt_order_product,
-                        attributes: [
-                            'order_id'
-                        ],
-                        required: true,
-                        include: {
-                            model: lltckt_order,
-                            required: true,
-                            where: { order_status_id: 5 },
-                            attributes: [ 'order_id' ]
-                        }
-                    }
-                }
-            ]
-        })
+        return await this.getIngressos(evento, true)
         .then(data => {
             // Filtra pelos ingressos vendidos
             const ingressos = data.filter(b => (
@@ -807,37 +749,7 @@ export default class Metrics {
      */
     static async getHorarioVenda(evento) {
         // Obtêm os ingressos vendidos do evento
-        return await tbl_ingressos.findAll({
-            where: {
-                ing_evento: evento,
-                ing_status: [ 1, 2 ],
-                ing_valor: { $gt: 0 }
-            },
-            attributes: [
-                'ing_data_compra',
-                'ing_pdv'
-            ],
-            order: [['ing_data_compra', 'ASC']],
-            include: [
-                // Ingresso no site
-                {
-                    model: lltckt_order_product_barcode,
-                    include: {
-                        model: lltckt_order_product,
-                        attributes: [
-                            'order_id'
-                        ],
-                        required: true,
-                        include: {
-                            model: lltckt_order,
-                            required: true,
-                            //where: { order_status_id: 5 },
-                            attributes: [ 'order_id' ]
-                        }
-                    }
-                }
-            ]
-        })
+        return await this.getIngressos(evento, true, true)
         .then(data => {
             // Filtra pelos ingressos vendidos
             const ingressos = data.filter(b => (
