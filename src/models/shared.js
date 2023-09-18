@@ -34,6 +34,19 @@ export default class Shared {
     }
 
     /**
+     * Converte datas em formato dia/mês/ano
+     * para o formato ISO.
+     * 
+     * @param {string} date 
+     */
+    static formatDate(date) {
+        let aux = date.split('/')
+        let dateString = `${aux[2]}-${aux[1]}-${aux[0]}`
+
+        return new Date(dateString)
+    }
+
+    /**
      * Converte valores numéricos no formato
      * monetário brasileiro.
      * 
