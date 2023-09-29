@@ -16,7 +16,8 @@ const lltckt_category_to_promoter = db_conn.define(
     'lltckt_category_to_promoter',
     {
         id_Category: {
-            type: DataTypes.INTEGER(11)
+            type: DataTypes.INTEGER(11),
+            primaryKey: true
         },
 
         id_promoter: {

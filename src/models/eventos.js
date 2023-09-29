@@ -1,3 +1,4 @@
+import { col, where, Op } from 'sequelize'
 import schemas from '../schemas/index.js'
 import Shared from './shared.js'
 
@@ -77,256 +78,216 @@ export default class Eventos {
      * 
      * @param {number} user_id Id do Promotor
      * @param {number?} evento Filtro por evento
+     * @param {number|string|null} tipo Filtro entre eventos:
+     * - `0`: `Todos` (padrão);
+     * - `1`: `Correntes`;
+     * - `2`: `Encerrados`.
+     * @param {number|string|null} pagina Página dos retornos
      * @returns 
      */
-    static async getEventos(user_id, evento) {
-        // Obtêm os ids dos eventos e suas categorias
-        const eventos = await lltckt_category_to_promoter.findAll({
-            where: { id_promoter: user_id },
-            attributes: [ 'id_Category' ]
-        })
-        .then(async result => {
-            // Auxiliar das categorias
-            let categorias = result.map(a => (
-                a.getDataValue('id_Category')
-            ))
-            
-            // Retorna os ids
-            return await lltckt_eve_categorias.findAll({
-                where: {
-                    codCatSite: {
-                        $in: categorias
-                    },
-                    codEvePdv: !!evento ? evento : { $not: null }
-                },
-                attributes: [
-                    'codCatSite'
-                ],
-                include: [
-                    {
-                        model: tbl_eventos,
-                        required: false,
-                        attributes: [
-                            'eve_cod',
-                            'eve_nome',
-                            'eve_data'
-                        ]
-                    },
-                    {
-                        model: lltckt_category,
-                        attributes: [
-                            'local',
-                            'local2'
-                        ]
-                    }
-                ]
-            })
-            .then(result => (
-                result.map(a => {
-                    // Dados do evento
-                    let evento = a.getDataValue('tbl_evento').dataValues
-
-                    // Dados do local do evento
-                    let category = a.getDataValue('lltckt_category').dataValues
-
-                    // Data atual
-                    let today = new Date()
-
-                    // Data do evento
-                    let date_aux = new Date(evento.eve_data)
-
-                    // Formata a data do evento
-                    evento.eve_data = Shared.getFullDate(date_aux)
-
-                    // Status do início do evento
-                    let inicio_evento
-                    
-                    // Calcula os dias até o início do evento
-                    const days_to = Shared.calcDaysBetween(date_aux, today)
-                    if(days_to > 0)
-                        inicio_evento = `Faltam ${days_to.toLocaleString('pt-BR')} dias`
-                    else if(days_to < 0)
-                        inicio_evento = 'Encerrado'
-                    else
-                        inicio_evento = 'Hoje'
-
-                    return ({
-                        ...evento,
-                        inicio_evento,
-                        local: category.local2,
-                        cidade: category.local,
-                        categoria: a.getDataValue('codCatSite')
-                    })
-                })
-            ))
-        })
+    static async getEventos(user_id, evento, tipo, pagina) {
+        // Auxiliar da página
+        let p = !!pagina ? parseInt(pagina) : 1
 
         // 00:00 hora do dia atual
-        let datetime_inicial_hoje = new Date()
-        datetime_inicial_hoje.setHours(0,0,0)
+        let dia_hoje = new Date()
+        dia_hoje.setHours(0,0,0)
 
-        // Calcula as vendas de cada evento
-        const promises = eventos.map(async evento => {
-            const {
-                vendido_site_hoje,
-                vendido_site_total,
-                receitas_site_hoje,
-                receitas_site_total,
-                taxas_site_total
-            } = await lltckt_order.findAll({
-                where: {
-                    category_id: evento.categoria,
-                    order_status_id: 5
-                },
-                attributes: [
-                    'category_id',
-                    'date_added'
-                ],
-                include: {
-                    model: lltckt_order_product,
-                    where: {
-                        total: { $not: 0 }
-                    },
+        let status_evento
+        switch(parseInt(tipo)) {
+            // Correntes
+            case 1:
+                status_evento = { eve_data: { $gte: dia_hoje } }
+                break
+
+            // Encerrados
+            case 2:
+                status_evento = { eve_data: { $lt: dia_hoje } }
+                break
+
+            // Todos
+            default:
+                status_evento = {}
+                break
+        }
+        
+        // Retorna os eventos do promotor
+        return await lltckt_eve_categorias.findAndCountAll({
+            
+            // Paginação
+            offset: (p -1) * 10,
+            limit: 10,
+
+            // Filtro por evento
+            where: {
+                codEvePdv: !!evento ? evento : { $not: null }
+            },
+
+            attributes: ['codCatSite'],
+            order: [[col('tbl_evento.eve_data'), 'asc']],
+            subQuery: false,
+            include: [
+                // Eventos
+                {
+                    model: tbl_eventos,
+                    required: true,
                     attributes: [
-                        'quantity',
-                        'total',
-                        'tax'
+                        'eve_cod',
+                        'eve_nome',
+                        'eve_data',
+                        'eve_local',
+                        'eve_cidade'
                     ],
-                    /*
-                        Algumas rows estão quebradas, sendo necessário um filtro forçado
-                        entre as 'orders' com ligação com algum registro de ingressos
-                        no schema 'ticketsl_promo'
-                    */
+
+                    // Filtro pelo status do evento
+                    where: { ...status_evento },
+
+                    // Ingressos emitidos
                     include: {
-                        model: lltckt_order_product_barcode,
-                        required: true
-                    }
-                }
-            })
-            .then(result => {
-                // Quantidade vendida no site
-                let vendido_site_hoje = 0   // Hoje
-                let vendido_site_total = 0  // Total
+                        model: tbl_ingressos,
+                        separate: true,
+                        required: false,
+                        where: {
+                            // Filtro de ingressos não cancelados
+                            ing_status: [1, 2],
+                            $or: [
+                                { ing_pdv: { $not: null }},
+                                where(col('lltckt_order_product_barcode.barcode'), Op.not, null)
+                            ]
+                        },
+                        attributes: [
+                            'ing_evento',
+                            'ing_valor',
+                            'ing_taxa',
+                            'ing_data_compra'
+                        ],
 
-                // Receitas obtidas no site
-                let receitas_site_hoje = 0  // Hoje
-                let receitas_site_total = 0 // Total
+                        // Ingresso no site
+                        include: {
+                            model: lltckt_order_product_barcode,
+                            required: false,
+                            attributes: [],
+                            include: {
+                                model: lltckt_order_product,
+                                required: true,
+                                attributes: [],
+                                include: {
+                                    model: lltckt_order,
+                                    required: true,
+                                    attributes: [],
 
-                // Total obtido em taxas no site
-                let taxas_site_total = 0
-
-                result.map(({ dataValues: venda }) => {
-                    // Calcula as vendas do dia atual
-                    if(venda.date_added >= datetime_inicial_hoje) {
-                        vendido_site_hoje += venda.lltckt_order_product.quantity
-                        receitas_site_hoje += parseFloat(venda.lltckt_order_product.total)
-                    }
-
-                    // Calcula as vendas totais
-                    vendido_site_total += venda.lltckt_order_product.quantity
-                    receitas_site_total += parseFloat(venda.lltckt_order_product.total)
-
-                    // Calcula o total em taxas
-                    taxas_site_total += parseFloat(venda.lltckt_order_product.tax)
-                })
-
-                return {
-                    vendido_site_hoje,
-                    vendido_site_total,
-                    receitas_site_hoje,
-                    receitas_site_total,
-                    taxas_site_total
-                }
-            })
-
-            const {
-                vendido_pdv_hoje,
-                vendido_pdv_total,
-                cortesias_pdv_hoje,
-                cortesias_pdv_total,
-                receitas_pdv_hoje,
-                receitas_pdv_total,
-                taxas_pdv_total
-            } = await tbl_ingressos.findAll({
-                where: {
-                    ing_evento: evento.eve_cod,
-                    ing_pdv: { $not: null },
-                    ing_status: { $in: [ 1, 2 ] }
-                },
-                attributes: [
-                    'ing_data_compra',
-                    'ing_valor',
-                    'ing_taxa'
-                ]
-            })
-            .then(result => {
-                // Quantidade vendida nos PDVs
-                let vendido_pdv_hoje = 0    // Hoje
-                let vendido_pdv_total = 0   // Total
-
-                // Total de Cortesias
-                let cortesias_pdv_hoje = 0  // Hoje
-                let cortesias_pdv_total = 0 // Total
-
-                // Receitas obtidas nos PDVs
-                let receitas_pdv_hoje = 0   // Hoje
-                let receitas_pdv_total = 0  // Total
-
-                // Total obtido em taxas nos PDVs
-                let taxas_pdv_total = 0
-
-                result.map(({ dataValues: ingresso }) => {
-                    if(ingresso.ing_valor != 0) {
-                        // Calcula as vendas do dia atual
-                        if(ingresso.ing_data_compra >= datetime_inicial_hoje) {
-                            vendido_pdv_hoje++
-                            receitas_pdv_hoje += parseFloat(ingresso.ing_valor)
+                                    // Filtro de ingressos não cancelados
+                                    where: { order_status_id: 5 }
+                                }
+                            }
                         }
-
-                        // Calcula as vendas totais
-                        vendido_pdv_total++
-                        receitas_pdv_total += parseFloat(ingresso.ing_valor)
                     }
-                    else {
-                        if(ingresso.ing_data_compra >= datetime_inicial_hoje) {
-                            // Calcula as cortesias do dia atual
+                },
+
+                // Evento no site
+                {
+                    model: lltckt_category,
+                    required: true,
+                    attributes: [
+                        'local',
+                        'local2'
+                    ],
+
+                    // Filtro por promotor
+                    include: {
+                        model: lltckt_category_to_promoter,
+                        required: true,
+                        where: { id_promoter: { $like: user_id } },
+                        attributes: [ 'id_Category' ]
+                    }
+                }
+            ]
+        })
+        .then(({ rows, count }) => ({
+            pagina: p,
+            total: Math.ceil(count / 10),
+            eventos: rows.map(a => {
+                // Dados do evento
+                let evento = a.getDataValue('tbl_evento')?.dataValues
+
+                // Dados do local do evento
+                let category = a.getDataValue('lltckt_category')?.dataValues
+
+                // Data do evento
+                let date_aux = new Date(evento.eve_data)
+
+                // Formata a data do evento
+                evento.eve_data = Shared.getFullDate(date_aux)
+
+                // Calcula os dias até o início do evento
+                const days_to = Shared.calcDaysBetween(date_aux, dia_hoje)
+                if(days_to > 0)
+                    evento.inicio_evento = `Faltam ${days_to.toLocaleString('pt-BR')} dias`
+                else if(days_to < 0)
+                    evento.inicio_evento = 'Encerrado'
+                else
+                    evento.inicio_evento = 'Hoje'
+
+                // Local do evento
+                evento.local = category?.local2 ?? evento.eve_local
+                evento.cidade = category?.local ?? evento.eve_cidade
+
+                // Id do evento no site
+                evento.categoria = a.getDataValue('codCatSite')
+
+                // Calcula as vendas do evento
+                let vendido_hoje = 0        // Vendidos hoje
+                let vendido_total = 0       // Total vendidos
+                let cortesias_pdv_hoje = 0  // Cortesias hoje
+                let cortesias_pdv_total = 0 // Total de cortesias
+                let receitas_hoje = 0       // Receita faturada hoje
+                let receitas_total = 0      // Receita total
+                let taxas_total = 0         // Total de taxas
+
+                evento.tbl_ingressos.map(ing => {
+                    let valor = parseFloat(ing.ing_valor)
+                    let taxa = parseFloat(ing.ing_taxa)
+
+                    // Ingresso emitido hoje
+                    if(ing.ing_data_compra > dia_hoje) {
+                        // Ingresso vendido
+                        if(valor > 0) {
+                            vendido_hoje++
+                            receitas_hoje += valor
+                        }
+                        // Cortesia
+                        else {
                             cortesias_pdv_hoje++
                         }
-
-                        // Calcula o total de cortesias
-                        cortesias_pdv_total++
-
                     }
 
-                    // Calcula o total em taxas
-                    taxas_pdv_total += parseFloat(ingresso.ing_taxa)
+                    // Ingresso vendido
+                    if(valor > 0) {
+                        vendido_total++
+                        receitas_total += valor
+                    }
+                    // Cortesia
+                    else {
+                        cortesias_pdv_total++
+                    }
+
+                    // Taxas
+                    taxas_total += taxa
                 })
 
-                return {
-                    vendido_pdv_hoje,
-                    vendido_pdv_total,
-                    cortesias_pdv_hoje,
-                    cortesias_pdv_total,
-                    receitas_pdv_hoje,
-                    receitas_pdv_total,
-                    taxas_pdv_total
-                }
+                evento.vendido_hoje = vendido_hoje
+                evento.vendido_total = vendido_total
+                evento.cortesias_pdv_hoje = cortesias_pdv_hoje
+                evento.cortesias_pdv_total = cortesias_pdv_total
+                evento.receitas_hoje = Shared.moneyFormat(receitas_hoje)
+                evento.receitas_total = Shared.moneyFormat(receitas_total)
+                evento.taxas_total = Shared.moneyFormat(taxas_total)
+
+                delete evento.tbl_ingressos
+
+                return evento
             })
-
-            // Retorna os dados da vitrine de Eventos
-            return {
-                ...evento,
-                vendido_hoje: vendido_pdv_hoje + vendido_site_hoje,
-                vendido_total: vendido_pdv_total + vendido_site_total,
-                cortesias_pdv_hoje,
-                cortesias_pdv_total,
-                receitas_hoje: Shared.moneyFormat(receitas_pdv_hoje + receitas_site_hoje),
-                receitas_total: Shared.moneyFormat(receitas_pdv_total + receitas_site_total),
-                taxas_total: Shared.moneyFormat(taxas_pdv_total + taxas_site_total)
-            }
-        })
-
-        return await Promise.all(promises)
+        }))
     }
 
     /**
@@ -535,7 +496,7 @@ export default class Eventos {
             }),
 
             this.getEventos(user_id, evento)
-            .then(result => {
+            .then(({ eventos: result }) => {
                 let {
                     // Ingressos Emitidos
                     vendido_hoje,

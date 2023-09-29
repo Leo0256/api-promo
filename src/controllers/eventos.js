@@ -14,8 +14,9 @@ export default class EventosController {
      */
     static async getEventos(req, res) {
         let { user_id } = req.body['token_data']
+        let { p, tipo } = req.query
 
-        await Eventos.getEventos(user_id)
+        await Eventos.getEventos(user_id, null, tipo, p)
         .then(result => res.json(result))
         .catch(e => {
             console.error(e)
@@ -43,6 +44,24 @@ export default class EventosController {
             res.status(e?.status ?? 500).json({
                 error: 'Falha ao Obter a Situação do Evento',
                 message: e?.message ?? null
+            })
+        })
+    }
+
+    /**
+     * 
+     * @param {import('express').Request} req 
+     * @param {import('express').Response} res 
+     */
+    static async getClasses(req, res) {
+        let { evento } = req.query
+
+        await Eventos.getClasses(evento)
+        .then(result => res.json(result))
+        .catch(e => {
+            console.error(e)
+            res.status(e?.status ?? 500).json({
+                error: ''
             })
         })
     }

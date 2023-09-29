@@ -77,7 +77,8 @@ const tbl_pdvs = db_conn.define(
         pos_percentual_taxa: {
             type: DataTypes.INTEGER(11)
         }
-    }
+    },
+    { schema: process.env.DB_PROMO }
 )
 
 export default tbl_pdvs
