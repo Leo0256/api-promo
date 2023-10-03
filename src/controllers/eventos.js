@@ -49,9 +49,10 @@ export default class EventosController {
     }
 
     /**
+     * Retorna a lista das classes de ingressos do evento informado.
      * 
-     * @param {import('express').Request} req 
-     * @param {import('express').Response} res 
+     * @param {Request} req 
+     * @param {Response} res 
      */
     static async getClasses(req, res) {
         let { evento } = req.query
@@ -61,7 +62,8 @@ export default class EventosController {
         .catch(e => {
             console.error(e)
             res.status(e?.status ?? 500).json({
-                error: ''
+                error: 'Falha ao Obter as Classes de Ingressos',
+                message: e?.message ?? null
             })
         })
     }

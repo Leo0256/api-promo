@@ -11,6 +11,8 @@ const {
     tbl_pdvs,
     tbl_classes_ingressos,
     tbl_classe_numeracao,
+    tbl_classe_ingressos_solidario,
+    tbl_categorias_classes_ingressos,
     tbl_meio_pgto,
 } = schemas.ticketsl_promo
 
@@ -651,6 +653,224 @@ export default class Eventos {
                 // Info Geral Bar
                 info_geral_bar
             }
+        })
+    }
+
+    /**
+     * Retorna a lista das classes de ingressos do evento informado.
+     * 
+     * Se a classe fazer parte de uma categoria, se agrupa com tal categoria.
+     * 
+     * Se a classe possuir solidários ou meia entradas, agrupa todas as suas diferentes variações.
+     * 
+     * @param {number} evento Id do evento
+     * @returns 
+     */
+    static async getClasses(evento) {
+        // Lista dos solidários ativos
+        const solidarios = await tbl_classes_ingressos.findAll({
+            where: { cla_evento: evento },
+            attributes: [],
+            include: {
+                model: tbl_classe_ingressos_solidario,
+                required: true,
+                attributes: ['cis_nome']
+            }
+        })
+        .then(result => {
+            
+            return result.map(a => {
+                return a.tbl_classe_ingressos_solidarios?.map(a => a.cis_nome)
+            })
+            .reduce((a, b) => a.concat(b), [])
+        })
+
+        // Obtêm as vendas do evento
+        return await tbl_ingressos.findAll({
+            where: {
+                ing_evento: evento
+            },
+
+            attributes: [
+                'ing_status',
+                'ing_valor',
+                'ing_meia',
+                'ing_solidario'
+            ],
+
+            include: [
+                // Classe do ingresso
+                {
+                    model: tbl_classes_ingressos,
+                    attributes: ['cla_nome'],
+
+                    // Categoria da classe
+                    include: {
+                        model: tbl_categorias_classes_ingressos,
+                        attributes: ['cat_nome']
+                    }
+                },
+
+                // Ingresso no site
+                {
+                    model: lltckt_order_product_barcode,
+                    required: false,
+                    attributes: ['barcode'],
+                    include: {
+                        model: lltckt_order_product,
+                        required: true,
+                        attributes: ['order_id'],
+                        include: {
+                            model: lltckt_order,
+                            required: true,
+                            attributes: ['order_status_id']
+                        }
+                    }
+                }
+            ]
+        })
+        .then(result => {
+            // Lista das categorias/classes sem categoria
+            let categorias = []
+
+            result.map(ing => {
+                // Auxiliar do status do ingresso no site
+                let order_status = ing?.lltckt_order_product_barcode?.lltckt_order_product?.lltckt_order?.order_status_id
+
+                // Ingresso vendido, não cancelado
+                let vendido = !![1,2].find(a => a == ing.ing_status) && (!order_status || order_status === 5)
+
+                // Valor do ingresso
+                let valor = parseFloat(ing.ing_valor)
+
+                // Ingresso sendo cortesia
+                let cortesia = valor == 0
+
+                // Ingresso solidário existente
+                let solidario = solidarios.find(a => a == ing?.ing_solidario)
+
+                // Nome da classe (+ nome solidário, se houver)
+                let classe_nome = (`${ing.tbl_classes_ingresso.cla_nome} ${solidario ?? ''}`).trim()
+
+
+                // Procura pela categoria registrada
+                let cat_index = categorias.findIndex(a => (
+                    // Nome da categoria
+                    a.categoria === ing.tbl_classes_ingresso.tbl_categorias_classes_ingresso?.cat_nome
+
+                    // Nome de classe sem categoria
+                    || a.categoria === ing.tbl_classes_ingresso.cla_nome
+                ))
+
+                // Categoria encontrada
+                if(cat_index >= 0) {
+                    // Procura pela classe registrada
+                    let classe_index = categorias[cat_index].classes.findIndex(a => (
+                        a.classe === classe_nome
+                        && a.valor_ing === valor
+                    ))
+
+                    // Classe encotrada
+                    if(classe_index >= 0) {
+                        // Se o ingresso foi vendido, registra a venda na categoria e classe
+                        if(vendido) {
+                            categorias[cat_index].vendas_quant += Number(!cortesia)
+                            categorias[cat_index].cortesias_quant += Number(cortesia)
+                            categorias[cat_index].total_quant++
+                            categorias[cat_index].valor_total += valor
+                            
+                            categorias[cat_index].classes[classe_index].vendas_quant += Number(!cortesia)
+                            categorias[cat_index].classes[classe_index].cortesias_quant += Number(cortesia)
+                            categorias[cat_index].classes[classe_index].total_quant++
+                            categorias[cat_index].classes[classe_index].valor_total += valor
+                        }
+                    }
+
+                    // Classe não encontrada
+                    else {
+                        // Se o ingresso foi vendido, registra a venda na categoria e classe
+                        if(vendido) {
+                            categorias[cat_index].vendas_quant += Number(!cortesia)
+                            categorias[cat_index].cortesias_quant += Number(cortesia)
+                            categorias[cat_index].total_quant++
+                            categorias[cat_index].valor_total += valor
+                            
+                            // Registra a nova classe
+                            categorias[cat_index].classes.push({
+                                classe: classe_nome,
+                                valor_ing: valor,
+                                vendas_quant: Number(!cortesia),
+                                cortesias_quant: Number(cortesia),
+                                total_quant: 1,
+                                valor_total: valor
+                            })
+                        }
+
+                        // Se o ingresso foi cancelado, registra a classe sem a venda
+                        else {
+                            categorias[cat_index].classes.push({
+                                classe: classe_nome,
+                                valor_ing: valor,
+                                vendas_quant: 0,
+                                cortesias_quant: 0,
+                                total_quant: 0,
+                                valor_total: 0
+                            })
+                        }
+                    }
+                }
+                
+                // Categoria não encontrada
+                else {
+                    // Nome da categoria ou da classe sem categoria
+                    let cat_nome = ing.tbl_classes_ingresso.tbl_categorias_classes_ingresso?.cat_nome
+                        ?? ing.tbl_classes_ingresso.cla_nome
+                    
+                    // Se o ingresso foi vendido, registra a venda na categoria e classe
+                    if(vendido) {
+                        categorias.push({
+                            categoria: cat_nome,
+                            vendas_quant: Number(!cortesia),
+                            cortesias_quant: Number(cortesia),
+                            total_quant: 1,
+                            valor_total: valor,
+                            classes: [{
+                                classe: classe_nome,
+                                valor_ing: valor,
+                                vendas_quant: Number(!cortesia),
+                                cortesias_quant: Number(cortesia),
+                                total_quant: 1,
+                                valor_total: valor
+                            }]
+                        })
+                    }
+
+                    // Se o ingresso foi cancelado, registra a categoria e classe sem a venda
+                    else {
+                        categorias.push({
+                            categoria: cat_nome,
+                            vendas_quant: 0,
+                            cortesias_quant: 0,
+                            total_quant: 0,
+                            valor_total: 0,
+                            classes: [{
+                                classe: classe_nome,
+                                valor_ing: valor,
+                                vendas_quant: 0,
+                                cortesias_quant: 0,
+                                total_quant: 0,
+                                valor_total: 0
+                            }]
+                        })
+                    }
+                }
+            })
+
+            // Ordena as categorias
+            categorias.sort((a, b) => a.categoria.localeCompare(b.categoria))
+
+            // Retorna as categorias/classes sem categoria
+            return categorias
         })
     }
 

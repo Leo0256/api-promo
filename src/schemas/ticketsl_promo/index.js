@@ -4,6 +4,8 @@ import caixa from './caixa.js'
 import devolucao from './devolucao.js'
 import item from './item.js'
 import tbl_categorias_classes_ingressos from './tbl_categorias_classes_ingressos.js'
+import tbl_classe_grupo from './tbl_classe_grupo.js'
+import tbl_classe_ingressos_solidario from './tbl_classe_ingressos_solidario.js'
 import tbl_classe_numeracao from './tbl_classe_numeracao.js'
 import tbl_classes_ingressos from './tbl_classes_ingressos.js'
 import tbl_eventos_pdvs from './tbl_eventos_pdvs.js'
@@ -22,11 +24,13 @@ import venda from './venda.js'
  */
 const schemas = {
     tbl_eventos,
-    tbl_classe_numeracao,
     tbl_meio_pgto,
     tbl_categorias_classes_ingressos,
     tbl_classes_ingressos,
     tbl_itens_classes_ingressos,
+    tbl_classe_grupo,
+    tbl_classe_ingressos_solidario,
+    tbl_classe_numeracao,
     tbl_pdvs,
     tbl_eventos_pdvs,
     tbl_pos,
