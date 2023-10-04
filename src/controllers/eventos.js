@@ -89,6 +89,25 @@ export default class EventosController {
     }
 
     /**
+     * 
+     * @param {Request} req 
+     * @param {Response} res 
+     */
+    static async getDiarios(req, res) {
+        let { evento, filtro } = req.query
+
+        await Eventos.getDiarios(evento, filtro)
+        .then(result => res.json(result))
+        .catch(e => {
+            console.error(e)
+            res.status(e?.status ?? 500).json({
+                error: 'Falha ao Obter o Relatório Diário',
+                message: e?.message ?? null
+            })
+        })
+    }
+
+    /**
      * Retorna o relatório detalhado
      * dos ingressos emitidos no evento.
      * 

@@ -9,6 +9,7 @@ router.get('/', Eventos.getEventos)
 router.get('/info', Eventos.getInfo)
 router.get('/classes', Eventos.getClasses)
 router.get('/pdvs', Eventos.getPDVs)
+router.get('/diarios', Eventos.getDiarios)
 router.post('/detalhados', Eventos.getDetalhados)
 router.get('/detalhados/filtros', Eventos.getDetalhadosFilter)
 

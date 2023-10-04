@@ -1071,6 +1071,190 @@ export default class Eventos {
     }
 
     /**
+     * Retorna o relatório diário de vendas, podendo filtrar entre
+     * as vendas: por classe, ou por PDV.
+     * 
+     * @param {number} evento Id do evento
+     * @param {'classes'|'pdv'} filtro Filtro das vendas diárias
+     */
+    static async getDiarios(evento, filtro) {
+        // Lista dos solidários ativos
+        const solidarios = await tbl_classes_ingressos.findAll({
+            where: { cla_evento: evento },
+            attributes: [],
+            include: {
+                model: tbl_classe_ingressos_solidario,
+                required: true,
+                attributes: ['cis_nome']
+            }
+        })
+        .then(result => {
+            return result.map(a => {
+                return a.tbl_classe_ingressos_solidarios?.map(a => a.cis_nome)
+            })
+            .reduce((a, b) => a.concat(b), [])
+        })
+
+        // Data do evento
+        const data_evento = await tbl_eventos.findByPk(evento, {
+            attributes: ['eve_data']
+        })
+        .then(result => new Date(result?.eve_data ?? Date.now()))
+
+        // Obtêm as vendas do evento
+        return await tbl_ingressos.findAll({
+            where: {
+                ing_evento: evento,
+
+                // Filtro de ingressos não cancelados
+                ing_status: [1, 2],
+                $or: [
+                    { ing_pdv: { $not: null }},
+                    where(col('lltckt_order_product_barcode.barcode'), Op.not, null)
+                ]
+            },
+
+            attributes: [
+                'ing_status',
+                'ing_valor',
+                'ing_data_compra',
+                'ing_solidario'
+            ],
+
+            // Ordena pela data mais recente
+            order: [['ing_data_compra', 'desc']],
+
+            include: [
+                // PDV
+                {
+                    model: tbl_pdvs,
+                    attributes: ['pdv_nome']
+                },
+
+                // Classe do ingresso
+                {
+                    model: tbl_classes_ingressos,
+                    attributes: ['cla_nome']
+                },
+
+                // Ingresso no site
+                {
+                    model: lltckt_order_product_barcode,
+                    required: false,
+                    attributes: [],
+                    include: {
+                        model: lltckt_order_product,
+                        required: true,
+                        attributes: [],
+                        include: {
+                            model: lltckt_order,
+                            required: true,
+                            attributes: [],
+                            
+                            // Filtro de ingressos não cancelados
+                            where: { order_status_id: 5 }
+                        }
+                    }
+                }
+            ]
+        })
+        .then(result => {
+            let diarios = []
+
+            result.map(ing => {
+                // Valor do ingresso
+                let valor = parseFloat(ing.ing_valor)
+
+                // Ingresso sendo cortesia
+                let cortesia = valor == 0
+
+                // Classe/PDV da venda
+                let nome_venda
+
+                // Define a orientação da venda: por classes, ou por PDVs
+                switch (filtro) {
+                    case 'classes':
+                        // Ingresso solidário existente
+                        let solidario = solidarios.find(a => a == ing?.ing_solidario)
+
+                        // Nome da classe (+ nome solidário, se houver)
+                        nome_venda = (`${ing.tbl_classes_ingresso.cla_nome} ${solidario ?? ''}`).trim()
+
+                        break
+
+                    case 'pdvs':
+                        // Nome do PDV
+                        nome_venda = ing?.tbl_pdv?.pdv_nome ?? 'Quero Ingresso - Internet'
+                        
+                        break
+                
+                    default: break
+                }
+
+                // Data da venda
+                let data_venda = `${Shared.getFullDate(ing.ing_data_compra)} - `
+                    + `${Shared.getWeekday(ing.ing_data_compra)}`
+                
+                
+                // Procura pela data registrada
+                let date_index = diarios.findIndex(a => (
+                    a.data === data_venda
+                ))
+
+                // Data encontrada
+                if(date_index >= 0) {
+                    diarios[date_index].vendidos += Number(!cortesia)
+                    diarios[date_index].cortesias += Number(cortesia)
+                    diarios[date_index].valor += valor
+
+                    // Procura pela venda registrada
+                    let venda_index = diarios[date_index].vendas.findIndex(a => (
+                        a.nome == nome_venda
+                    ))
+
+                    // Venda encontrada
+                    if(venda_index >= 0) {
+                        diarios[date_index].vendas[venda_index].vendidos += Number(!cortesia)
+                        diarios[date_index].vendas[venda_index].cortesias += Number(cortesia)
+                        diarios[date_index].vendas[venda_index].valor += valor
+                    }
+
+                    // Venda não encontrada
+                    else {
+                        // Registra a nova venda
+                        diarios[date_index].vendas.push({
+                            nome: nome_venda,
+                            vendidos: Number(!cortesia),
+                            cortesias: Number(cortesia),
+                            valor
+                        })
+                    }
+                }
+
+                // Data não encontrada
+                else {
+                    diarios.push({
+                        data: data_venda,
+                        prazo: Shared.calcDaysBetween(data_evento, ing.ing_data_compra),
+                        vendidos: Number(!cortesia),
+                        cortesias: Number(cortesia),
+                        valor,
+                        vendas: [{
+                            nome: nome_venda,
+                            vendidos: Number(!cortesia),
+                            cortesias: Number(cortesia),
+                            valor
+                        }]
+                    })
+                }
+            })
+
+            // Retorna o relatório diário
+            return diarios
+        })
+    }
+
+    /**
      * Retorna o relatório detalhado
      * dos ingressos emitidos no evento.
      * 
