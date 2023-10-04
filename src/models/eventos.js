@@ -12,6 +12,8 @@ const {
     tbl_classes_ingressos,
     tbl_classe_ingressos_solidario,
     tbl_categorias_classes_ingressos,
+    tbl_classe_grupo,
+    tbl_classe_numeracao,
 } = schemas.ticketsl_promo
 
 const {
@@ -1204,6 +1206,202 @@ export default class Eventos {
 
             // Retorna o relatório diário
             return diarios
+        })
+    }
+
+    /**
+     * Retorna o relatório de classes numeradas.
+     * 
+     * @param {number} evento Id do evento
+     * @returns 
+     */
+    static async getNumerados(evento) {
+
+        /**
+         * Define a disponibilidade do numerado.
+         * 
+         * @param {number} disp 
+         * @returns 
+         */
+        const setDisp = disp => {
+            switch (disp) {
+                case 0: return 'Indisponível'
+                case 1: return 'Disponível'
+                case 2: return 'Parcial'
+            
+                default: break
+            }
+        }
+
+        // Obtêm as classes numeradas do evento
+        return await tbl_classes_ingressos.findAll({
+            where: {
+                cla_evento: evento,
+                cla_numeracao: 1
+            },
+            attributes: ['cla_nome'],
+            include: {
+                model: tbl_classe_grupo,
+                required: true,
+                separate: true,
+                attributes: ['clg_nome'],
+                include: {
+                    model: tbl_classe_numeracao,
+                    as: 'numerados',
+                    attributes: [
+                        'cln_disp',
+                        'cln_texto_pos',
+                        'cln_cortesia'
+                    ],
+                    order: [['cln_cod', 'asc']],
+                    include: {
+                        model: tbl_ingressos,
+                        separate: true,
+                        where: {
+                            // Filtro de ingressos não cancelados
+                            ing_status: [1, 2],
+                            $or: [
+                                { ing_pdv: { $not: null }},
+                                where(col('lltckt_order_product_barcode.barcode'), Op.not, null)
+                            ]
+                        },
+                        attributes: [
+                            'ing_cod_barras',
+                            'ing_valor',
+                            'ing_meia'
+                        ],
+                        include: [
+                            // PDV
+                            {
+                                model: tbl_pdvs,
+                                attributes: ['pdv_nome']
+                            },
+
+                            // Ingresso no site
+                            {
+                                model: lltckt_order_product_barcode,
+                                required: false,
+                                attributes: [],
+                                include: {
+                                    model: lltckt_order_product,
+                                    required: true,
+                                    attributes: [],
+                                    include: {
+                                        model: lltckt_order,
+                                        required: true,
+                                        attributes: [],
+                                        
+                                        // Filtro de ingressos não cancelados
+                                        where: { order_status_id: 5 }
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        })
+        .then(result => {
+            let classes = []
+
+            result.map(classe => {
+                // Auxiliar dos grupos de numerados
+                let grupos = []
+
+                // Registra os grupos de numerados
+                classe.tbl_classe_grupos.map(grupo => {
+                    // Auxiliar dos numerados
+                    let numerados = []
+
+                    // Registra os numerados
+                    grupo.numerados.map(numerado => {
+                        // Ingresso do numerado
+                        let ingresso = numerado.tbl_ingressos[0]
+
+                        // Numerado vendido
+                        let vendidos = numerado.tbl_ingressos.length
+
+                        // Valor do ingresso vendido
+                        let valor = parseFloat(ingresso?.ing_valor ?? 0)
+
+                        // Tipo e PDV do ingresso
+                        let tipo = 'Inteira'
+                        let pdv = '-'
+
+                        // Se o numerado foi vendido
+                        if(ingresso) {
+                            // Redefine o tipo de ingresso
+                            if(valor == 0) tipo = 'Cortesia'
+                            else if(ingresso.ing_meia) tipo = 'Meia'
+
+                            // Obtêm o nome do PDV
+                            pdv = ingresso?.tbl_pdv?.pdv_nome ?? 'Quero Ingresso - Internet'
+                        }
+
+                        // Registra o numerado
+                        numerados.push({
+                            numerado: numerado.cln_texto_pos,
+                            disp: setDisp(numerado.cln_disp),
+                            vendido: !!vendidos,
+                            cod_barras: ingresso?.ing_cod_barras ?? '-',
+                            quant_vendido: vendidos,
+                            valor_venda: Shared.moneyFormat(valor),
+                            tipo,
+                            pdv
+                        })
+                    })
+
+                    // Verifica a disponibilidade do grupo
+                    let disp_total = numerados.reduce((a, b) => a += Number(b.disp === 'Disponível'), 0)
+                    let disp = disp_total === 0 ? 0
+                        : disp_total === numerados.length ? 1
+                        : 2
+                    
+                    // Calcula o total de numerados vendidos e disponíveis
+                    let vendidos = numerados.reduce((a, b) => a += Number(b.vendido), 0)
+                    let saldo = numerados.length - vendidos
+
+                    // Registra o grupo de numerados
+                    grupos.push({
+                        grupo: grupo.clg_nome,
+                        disp: setDisp(disp),
+                        estq_inicial: numerados.length,
+                        vendidos,
+                        vendidos_perc: Shared.percentage(vendidos, numerados.length),
+                        saldo,
+                        saldo_perc: Shared.percentage(saldo, numerados.length),
+                        numerados
+                    })
+                })
+
+                // Verifica a diponibilidade da classe numerada
+                let disp_total = grupos.reduce((a, b) => a += Number(b.disp === 'Disponível'), 0)
+                let disp = disp_total === 0 ? 0
+                    : disp_total === grupos.length ? 1
+                    : 2
+                
+                // Calcula o estoque de numerados da classe
+                let estoque = grupos.reduce((a, b) => a += b.estq_inicial, 0)
+
+                // Calcula o total de numerados vendidos e disponíveis
+                let vendidos = grupos.reduce((a, b) => a += b.vendidos, 0)
+                let saldo = estoque - vendidos
+
+                // Registra a classe de numerados
+                classes.push({
+                    classe: classe.cla_nome,
+                    disp: setDisp(disp),
+                    estq_inicial: estoque,
+                    vendidos,
+                    vendidos_perc: Shared.percentage(vendidos, estoque),
+                    saldo,
+                    saldo_perc: Shared.percentage(saldo, estoque),
+                    grupos
+                })
+            })
+
+            // Retorna o relatório de numerados
+            return classes
         })
     }
 

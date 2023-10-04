@@ -108,6 +108,26 @@ export default class EventosController {
     }
 
     /**
+     * Retorna o relatório de classes numeradas.
+     * 
+     * @param {Request} req 
+     * @param {Response} res 
+     */
+    static async getNumerados(req, res) {
+        let { evento } = req.query
+
+        await Eventos.getNumerados(evento)
+        .then(result => res.json(result))
+        .catch(e => {
+            console.error(e)
+            res.status(e?.status ?? 500).json({
+                error: 'Falha ao Obter o Relatório de Numerados',
+                message: e?.message ?? null
+            })
+        })
+    }
+
+    /**
      * Retorna o relatório detalhado
      * dos ingressos emitidos no evento.
      * 
