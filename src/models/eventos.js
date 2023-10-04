@@ -1,6 +1,7 @@
 import { col, where, Op } from 'sequelize'
 import schemas from '../schemas/index.js'
 import Shared from './shared.js'
+import tbl_venda_ingressos from '../schemas/ticketsl_promo/tbl_venda_ingressos.js'
 
 const {
     tbl_eventos,
@@ -1085,6 +1086,12 @@ export default class Eventos {
                 // Forma de pagamento (PDVs)
                 tbl_meio_pgto,
 
+                // Dados de venda pelos PDVs
+                {
+                    model: tbl_venda_ingressos,
+                    attributes: ['vend_pagseguro_cod']
+                },
+
                 // Ingresso no site
                 {
                     model: lltckt_order_product_barcode,
@@ -1123,7 +1130,8 @@ export default class Eventos {
                         ing: ing.tbl_classes_ingresso.cla_nome,
                         ing_num: ing.tbl_classe_numeracao?.cln_num ?? '-',
                         valor: Shared.moneyFormat(valor),
-                        pagamento: rename_mpgto(ing.tbl_meio_pgto.mpg_nome, valor)
+                        pagamento: rename_mpgto(ing.tbl_meio_pgto.mpg_nome, valor),
+                        cod_pagseguro: ing?.tbl_venda_ingresso?.vend_pagseguro_cod ?? '-'
                     }
                 }
 
@@ -1142,7 +1150,8 @@ export default class Eventos {
                         ing: ing.tbl_classes_ingresso.cla_nome,
                         ing_num: ing.tbl_classe_numeracao?.cln_num ?? '-',
                         valor: Shared.moneyFormat(valor),
-                        pagamento: rename_mpgto(order.payment_method, valor)
+                        pagamento: rename_mpgto(order.payment_method, valor),
+                        cod_pagseguro: ing?.tbl_venda_ingresso?.vend_pagseguro_cod ?? '-'
                     }
                 }
             })

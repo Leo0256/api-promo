@@ -16,6 +16,9 @@ import tbl_meio_pgto from './tbl_meio_pgto.js'
 import tbl_pdvs from './tbl_pdvs.js'
 import tbl_pos from './tbl_pos.js'
 import tbl_sangria from './tbl_sangria.js'
+import tbl_status_impressao from './tbl_status_impressao.js'
+import tbl_venda_impressao from './tbl_venda_impressao.js'
+import tbl_venda_ingressos from './tbl_venda_ingressos.js'
 import venda_item from './venda_item.js'
 import venda from './venda.js'
 
@@ -25,6 +28,8 @@ import venda from './venda.js'
 const schemas = {
     tbl_eventos,
     tbl_meio_pgto,
+    tbl_status_impressao,
+    tbl_venda_ingressos,
     tbl_categorias_classes_ingressos,
     tbl_classes_ingressos,
     tbl_itens_classes_ingressos,
@@ -36,6 +41,7 @@ const schemas = {
     tbl_pos,
     tbl_ingressos,
     tbl_sangria,
+    tbl_venda_impressao,
     caixa,
     devolucao,
     venda,

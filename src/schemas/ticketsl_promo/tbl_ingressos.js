@@ -8,6 +8,7 @@ import tbl_classe_numeracao from './tbl_classe_numeracao.js'
 import tbl_eventos from './tbl_eventos.js'
 import tbl_meio_pgto from './tbl_meio_pgto.js'
 import tbl_itens_classes_ingressos from './tbl_itens_classes_ingressos.js'
+import tbl_venda_ingressos from './tbl_venda_ingressos.js'
 
 
 /**
@@ -21,6 +22,7 @@ import tbl_itens_classes_ingressos from './tbl_itens_classes_ingressos.js'
  * - tbl_eventos (ing_evento → eve_cod)
  * - tbl_meio_pgto (ing_mpgto → mpg_codigo)
  * - tbl_itens_classes_ingressos (ing_item_classe_ingresso → itc_cod)
+ * - tbl_venda_ingressos (ing_venda → vend_id)
  */
 const tbl_ingressos = db_conn.define(
     'tbl_ingressos',
@@ -245,6 +247,25 @@ tbl_itens_classes_ingressos.hasMany(tbl_ingressos, {
 tbl_ingressos.belongsTo(tbl_itens_classes_ingressos, {
     foreignKey: 'ing_item_classe_ingresso',
     targetKey: 'itc_cod'
+})
+
+// tbl_venda_ingressos (ing_venda → vend_id)
+tbl_venda_ingressos.hasMany(tbl_ingressos, {
+    foreignKey: 'ing_venda',
+    sourceKey: 'vend_id',
+    onUpdate: 'restrict',
+    onDelete: 'restrict',
+    hooks: true
+})
+tbl_venda_ingressos.hasMany(tbl_ingressos, {
+    foreignKey: 'ing_venda',
+    sourceKey: 'vend_id',
+    as: 'ingressos',
+    hooks: true
+})
+tbl_ingressos.belongsTo(tbl_venda_ingressos, {
+    foreignKey: 'ing_venda',
+    targetKey: 'vend_id'
 })
 
 export default tbl_ingressos
