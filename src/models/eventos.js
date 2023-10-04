@@ -876,6 +876,201 @@ export default class Eventos {
     }
 
     /**
+     * Retorna o relatório de vendas dos PDVs.
+     * 
+     * @param {number} evento Id do evento
+     * @returns 
+     */
+    static async getPDVs(evento) {
+        // Lista dos solidários ativos
+        const solidarios = await tbl_classes_ingressos.findAll({
+            where: { cla_evento: evento },
+            attributes: [],
+            include: {
+                model: tbl_classe_ingressos_solidario,
+                required: true,
+                attributes: ['cis_nome']
+            }
+        })
+        .then(result => {
+            return result.map(a => {
+                return a.tbl_classe_ingressos_solidarios?.map(a => a.cis_nome)
+            })
+            .reduce((a, b) => a.concat(b), [])
+        })
+
+        // Obtêm as vendas do evento
+        return await tbl_ingressos.findAll({
+            where: {
+                ing_evento: evento
+            },
+
+            attributes: [
+                'ing_status',
+                'ing_valor',
+                'ing_data_compra',
+                'ing_solidario'
+            ],
+
+            include: [
+                // PDV
+                {
+                    model: tbl_pdvs,
+                    attributes: ['pdv_nome']
+                },
+
+                // Classe do ingresso
+                {
+                    model: tbl_classes_ingressos,
+                    attributes: ['cla_nome']
+                },
+
+                // Ingresso no site
+                {
+                    model: lltckt_order_product_barcode,
+                    required: false,
+                    attributes: ['barcode'],
+                    include: {
+                        model: lltckt_order_product,
+                        required: true,
+                        attributes: ['order_id'],
+                        include: {
+                            model: lltckt_order,
+                            required: true,
+                            attributes: ['order_status_id']
+                        }
+                    }
+                }
+            ]
+        })
+        .then(result => {
+            let pdvs = []
+
+            // 00:00 do dia atual
+            let dia_hoje = new Date()
+            dia_hoje.setUTCHours(0,0,0)
+
+            result.map(ing => {
+                // Auxiliar do status do ingresso no site
+                let order_status = ing?.lltckt_order_product_barcode?.lltckt_order_product?.lltckt_order?.order_status_id
+
+                // Ingresso vendido, não cancelado
+                let vendido = !![1,2].find(a => a == ing.ing_status) && (!order_status || order_status === 5)
+
+                // Ingresso emitido hoje
+                let emitido_hoje = ing.ing_data_compra >= dia_hoje
+
+                // Valor do ingresso
+                let valor = parseFloat(ing.ing_valor)
+
+                // Ingresso sendo cortesia
+                let cortesia = valor == 0
+
+                // Valor do ingresso emitido hoje
+                let valor_hoje = emitido_hoje ? valor : 0
+
+                // Ingresso solidário existente
+                let solidario = solidarios.find(a => a == ing?.ing_solidario)
+
+                // Nome do PDV
+                let pdv_nome = ing?.tbl_pdv?.pdv_nome ?? 'Quero Ingresso - Internet'
+
+                // Nome da classe (+ nome solidário, se houver)
+                let classe_nome = (`${ing.tbl_classes_ingresso.cla_nome} ${solidario ?? ''}`).trim()
+
+                // Procura pelo PDV registrado
+                let pdv_index = pdvs.findIndex(a => a.pdv === pdv_nome)
+
+                // PDV encontrado
+                if(pdv_index >= 0) {
+                    // Se o ingresso foi vendido, registra a venda no PDV
+                    if(vendido) {
+                        pdvs[pdv_index].quant_hoje += Number(emitido_hoje)
+                        pdvs[pdv_index].valor_hoje += valor_hoje
+                        pdvs[pdv_index].quant_total += Number(!cortesia)
+                        pdvs[pdv_index].valor_total += valor
+                        pdvs[pdv_index].cortesias += Number(cortesia)
+                    }
+
+                    // Procura pela classe registrada
+                    let classe_index = pdvs[pdv_index].classes.findIndex(a => (
+                        a.classe === classe_nome
+                    ))
+
+                    // Classe encontrada
+                    if(classe_index >= 0) {
+                        // Se o ingresso foi vendido, registra a venda na classe
+                        if(vendido) {
+                            pdvs[pdv_index].classes[classe_index].quant_hoje += Number(emitido_hoje)
+                            pdvs[pdv_index].classes[classe_index].valor_hoje += valor_hoje
+                            pdvs[pdv_index].classes[classe_index].quant_total += Number(!cortesia)
+                            pdvs[pdv_index].classes[classe_index].valor_total += valor
+                            pdvs[pdv_index].classes[classe_index].cortesias += Number(cortesia)
+                        }
+                    }
+
+                    // Classe não encontrada
+                    else {
+                        // Se o ingresso foi vendido, registra a venda na classe
+                        if(vendido) {
+                            // Registra a nova classe
+                            pdvs[pdv_index].classes.push({
+                                classe: classe_nome,
+                                quant_hoje: Number(emitido_hoje),
+                                valor_hoje: valor_hoje,
+                                quant_total: Number(!cortesia),
+                                valor_total: valor,
+                                cortesias: Number(cortesia)
+                            })
+                        }
+
+                        // Se o ingresso foi cancelado, registra a classe sem a venda
+                        else {
+                            pdvs[pdv_index].classes.push({
+                                classe: classe_nome,
+                                quant_hoje: 0,
+                                valor_hoje: 0,
+                                quant_total: 0,
+                                valor_total: 0,
+                                cortesias: 0
+                            })
+                        }
+                    }
+                }
+
+                // PDV não encontrado
+                else {
+                    // Se o ingresso foi vendido, registra a venda no PDV
+                    if(vendido) {
+                        pdvs.push({
+                            pdv: pdv_nome,
+                            quant_hoje: Number(emitido_hoje),
+                            valor_hoje: valor_hoje,
+                            quant_total: Number(!cortesia),
+                            valor_total: valor,
+                            cortesias: Number(cortesia),
+                            classes: [{
+                                classe: classe_nome,
+                                quant_hoje: Number(emitido_hoje),
+                                valor_hoje: valor_hoje,
+                                quant_total: Number(!cortesia),
+                                valor_total: valor,
+                                cortesias: Number(cortesia)
+                            }]
+                        })
+                    }
+                }
+            })
+
+            // Ordena os PDVs
+            pdvs.sort((a, b) => a.pdv.localeCompare(b.pdv))
+
+            // Retorna os PDVs
+            return pdvs
+        })
+    }
+
+    /**
      * Retorna o relatório detalhado
      * dos ingressos emitidos no evento.
      * 

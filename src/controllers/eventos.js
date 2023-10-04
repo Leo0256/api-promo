@@ -69,6 +69,26 @@ export default class EventosController {
     }
 
     /**
+     * Retorna o relatório de vendas dos PDVs.
+     * 
+     * @param {Request} req 
+     * @param {Response} res 
+     */
+    static async getPDVs(req, res) {
+        let { evento } = req.query
+
+        await Eventos.getPDVs(evento)
+        .then(result => res.json(result))
+        .catch(e => {
+            console.error(e)
+            res.status(e?.status ?? 500).json({
+                error: 'Falha ao Obter os PDVs',
+                message: e?.message ?? null
+            })
+        })
+    }
+
+    /**
      * Retorna o relatório detalhado
      * dos ingressos emitidos no evento.
      * 
