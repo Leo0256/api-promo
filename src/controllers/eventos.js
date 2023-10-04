@@ -1,4 +1,4 @@
-import { Eventos } from '../models/index.js'
+import { Eventos, RelatoriosAnaliticos } from '../models/index.js'
 
 /**
  * Controlador dos Eventos
@@ -128,7 +128,7 @@ export default class EventosController {
             pagina
         } = req.body
 
-        await Eventos.getDetalhados(evento, filtros, busca, linhas, pagina)
+        await RelatoriosAnaliticos.getDetalhados(evento, filtros, busca, linhas, pagina)
         .then(result => res.json(result))
         .catch(e => {
             console.error(e)
@@ -148,7 +148,7 @@ export default class EventosController {
     static async getDetalhadosFilter(req, res) {
         let { evento } = req.query
 
-        await Eventos.getDetalhadosFilter(evento)
+        await RelatoriosAnaliticos.getDetalhadosFilter(evento)
         .then(result => res.json(result))
         .catch(e => {
             console.error(e)
