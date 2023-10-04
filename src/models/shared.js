@@ -101,4 +101,18 @@ export default class Shared {
         )
     }
 
+    /**
+     * Calcula o percentual de um valor
+     * sobre o total.
+     * 
+     * @param {number} value 
+     * @param {number} total 
+     * @returns 
+     */
+    static percentage(value, total) {
+        let perc = (value * 100 / total).toFixed(2)
+
+        return `${perc.replace(/\./, ',')}%`
+    }
+
 }
