@@ -5,6 +5,7 @@ export default class Shared {
      * 
      * @param {Date} first Data inicial
      * @param {Date} end Data final
+     * @returns 
      */
     static calcDaysBetween(first, end) {
         // Datas iguais
@@ -38,12 +39,36 @@ export default class Shared {
      * para o formato ISO.
      * 
      * @param {string} date 
+     * @returns 
      */
     static formatDate(date) {
         let aux = date.split('/')
         let dateString = `${aux[2]}-${aux[1]}-${aux[0]}`
 
         return new Date(dateString)
+    }
+
+    /**
+     * Retorna o dia da semana, em referencia à
+     * data informada.
+     * 
+     * @param {Date} date 
+     * @returns 
+     */
+    static getWeekday(date) {
+        let utc_day = date.getUTCDay()
+
+        const week = [
+            'Domingo',
+            'Segunda-feira',
+            'Terça-feira',
+            'Quarta-feira',
+            'Quinta-feira',
+            'Sexta-feira',
+            'Sábado'
+        ]
+
+        return week[utc_day]
     }
 
     /**
