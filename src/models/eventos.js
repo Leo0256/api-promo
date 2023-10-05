@@ -1188,9 +1188,12 @@ export default class Eventos {
 
                 // Data não encontrada
                 else {
+                    // Prazo até a data do evento
+                    let prazo = Shared.calcDaysBetween(data_evento, ing.ing_data_compra)
+
                     diarios.push({
                         data: data_venda,
-                        prazo: Shared.calcDaysBetween(data_evento, ing.ing_data_compra),
+                        prazo: `${prazo} dia${prazo > 1 ? 's' : ''}`,
                         vendidos: Number(!cortesia),
                         cortesias: Number(cortesia),
                         valor,

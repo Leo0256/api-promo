@@ -89,6 +89,8 @@ export default class EventosController {
     }
 
     /**
+     * Retorna o relatório diário de vendas, podendo filtrar entre
+     * as vendas: por classe, ou por PDV.
      * 
      * @param {Request} req 
      * @param {Response} res 
