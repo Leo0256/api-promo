@@ -251,7 +251,8 @@ export default class RelatoriosAnaliticos {
                 'ing_classe_ingresso',
                 'cln_cod',
                 'ing_valor',
-                'ing_mpgto'
+                'ing_mpgto',
+                'ing_solidario'
             ],
             order: [['ing_data_compra', 'DESC']],
             include: [
@@ -308,6 +309,9 @@ export default class RelatoriosAnaliticos {
                 // Auxiliar do valor do ingresso
                 let valor = parseFloat(ing.ing_valor)
 
+                // Classe (+ nome do solidário, se houver)
+                let classe = (`${ing.tbl_classes_ingresso.cla_nome} ${ing?.ing_solidario ?? ''}`).trim()
+
                 // Ingresso vendido nos PDVs
                 if(ing.ing_pos) {
                     return {
@@ -317,7 +321,7 @@ export default class RelatoriosAnaliticos {
                         pedido: '-',
                         cod_barras: ing.ing_cod_barras,
                         situacao: this.set_status(ing.ing_status, false),
-                        ing: ing.tbl_classes_ingresso.cla_nome,
+                        ing: classe,
                         ing_num: ing.tbl_classe_numeracao?.cln_num ?? '-',
                         valor: Shared.moneyFormat(valor),
                         pagamento: rename_mpgto(ing.tbl_meio_pgto.mpg_nome, valor),
@@ -337,7 +341,7 @@ export default class RelatoriosAnaliticos {
                         pedido: order.order_id,
                         cod_barras: ing.ing_cod_barras,
                         situacao: this.set_status(order.order_status_id, true),
-                        ing: ing.tbl_classes_ingresso.cla_nome,
+                        ing: classe,
                         ing_num: ing.tbl_classe_numeracao?.cln_num ?? '-',
                         valor: Shared.moneyFormat(valor),
                         pagamento: rename_mpgto(order.payment_method, valor),
