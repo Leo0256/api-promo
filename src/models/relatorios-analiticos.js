@@ -91,7 +91,12 @@ export default class RelatoriosAnaliticos {
     static async getDetalhados(evento, filtros, busca, linhas, pagina) {
 
         // Obtêm os ingresso
-        let ingressos = await this.getIngressosDetalhados(evento)
+        let {
+            total,
+            pagina: page,
+            count,
+            ingressos
+        } = await this.getIngressosDetalhados(evento, parseInt(linhas), parseInt(pagina))
 
         // Busca - início
 
@@ -166,35 +171,6 @@ export default class RelatoriosAnaliticos {
         // Filtros - fim
 
 
-        // Total de ingressos retornados
-        const count = ingressos.length
-
-
-        // Paginação - início
-
-        // Converte as linhas e páginas em inteiros
-        let l_int = parseInt(linhas)
-        let p_int = parseInt(pagina)
-
-        // Indicador de com ou sem paginação
-        const with_pages = !isNaN(l_int) && !isNaN(p_int)
-        
-        // Página atual
-        let page = undefined
-
-        // Total de páginas
-        let total = undefined
-        
-        // Paginação
-        if(with_pages) {
-            page = Math.abs(p_int)
-            total = Math.ceil(count / l_int)
-            ingressos = ingressos.slice((page -1) * l_int, page * l_int)
-        }
-
-        // Paginação - fim
-
-
         // Retorna os dados
         return {
             pagina: page,
@@ -209,9 +185,11 @@ export default class RelatoriosAnaliticos {
      * dos ingressos emitidos no evento.
      * 
      * @param {number} evento Id do evento
+     * @param {number?} l Nº de linhas por página
+     * @param {number?} p Página da lista
      * @returns 
      */
-    static async getIngressosDetalhados(evento) {
+    static async getIngressosDetalhados(evento, l, p) {
 
         /**
          * Renomeia a forma de pagamento.
@@ -239,8 +217,16 @@ export default class RelatoriosAnaliticos {
             }
         }
 
+        // Indicador de com ou sem paginação
+        let with_pages = !isNaN(l) && !isNaN(p)
+
         // Retorna todas as vendas de ingressos do evento
-        return await tbl_ingressos.findAll({
+        return await tbl_ingressos.findAndCountAll({
+
+            // Paginação
+            offset: with_pages ? (p -1) * l : undefined,
+            limit: with_pages ? l : undefined,
+
             where: { ing_evento: evento },
             attributes: [
                 'ing_data_compra',
@@ -304,8 +290,11 @@ export default class RelatoriosAnaliticos {
                 }
             ]
         })
-        .then(data => (
-            data.map(ing => {
+        .then(({ count, rows }) => ({
+            total: with_pages ? Math.ceil(count / l) : undefined,
+            pagina: with_pages ? p : undefined,
+            count,
+            ingressos: rows.map(ing => {
                 // Auxiliar do valor do ingresso
                 let valor = parseFloat(ing.ing_valor)
 
@@ -349,7 +338,7 @@ export default class RelatoriosAnaliticos {
                     }
                 }
             })
-        ))
+        }))
     }
 
     /**
