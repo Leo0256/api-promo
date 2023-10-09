@@ -864,6 +864,7 @@ export default class Eventos {
                 'ing_status',
                 'ing_valor',
                 'ing_data_compra',
+                'ing_mpgto',
                 'ing_solidario'
             ],
 
@@ -945,6 +946,30 @@ export default class Eventos {
                         pdvs[pdv_index].quant_total += Number(!cortesia)
                         pdvs[pdv_index].valor_total += valor
                         pdvs[pdv_index].cortesias += Number(cortesia)
+
+                        switch(ing.ing_mpgto) {
+                            // Dinheiro
+                            case 1:
+                                pdvs[pdv_index].meios_pgto.dinheiro += valor
+                                break
+
+                            // Crédito
+                            case 2:
+                                pdvs[pdv_index].meios_pgto.credito += valor
+                                break
+
+                            // Débito
+                            case 3:
+                                pdvs[pdv_index].meios_pgto.debito += valor
+                                break
+
+                            // PIX
+                            case 4:
+                                pdvs[pdv_index].meios_pgto.pix += valor
+                                break
+                            
+                            default: break
+                        }
                     }
 
                     // Procura pela classe registrada
@@ -997,6 +1022,37 @@ export default class Eventos {
                 else {
                     // Se o ingresso foi vendido, registra a venda no PDV
                     if(vendido) {
+                        let meios_pgto = {
+                            dinheiro: 0,
+                            credito: 0,
+                            debito: 0,
+                            pix: 0
+                        }
+
+                        switch(ing.ing_mpgto) {
+                            // Dinheiro
+                            case 1:
+                                meios_pgto.dinheiro += valor
+                                break
+
+                            // Crédito
+                            case 2:
+                                meios_pgto.credito += valor
+                                break
+
+                            // Débito
+                            case 3:
+                                meios_pgto.debito += valor
+                                break
+
+                            // PIX
+                            case 4:
+                                meios_pgto.pix += valor
+                                break
+                            
+                            default: break
+                        }
+
                         pdvs.push({
                             pdv: pdv_nome,
                             quant_hoje: Number(emitido_hoje),
@@ -1004,6 +1060,7 @@ export default class Eventos {
                             quant_total: Number(!cortesia),
                             valor_total: valor,
                             cortesias: Number(cortesia),
+                            meios_pgto,
                             classes: [{
                                 classe: classe_nome,
                                 quant_hoje: Number(emitido_hoje),
