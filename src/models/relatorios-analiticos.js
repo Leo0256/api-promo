@@ -14,6 +14,9 @@ const {
     lltckt_order_product,
     lltckt_order,
     lltckt_order_product_barcode,
+    lltckt_order_status,
+    lltckt_customer,
+    lltckt_product,
 } = schemas.ticketsl_loja
 
 /**
@@ -424,6 +427,219 @@ export default class RelatoriosAnaliticos {
                 tipo
             }
         })
+    }
+
+    /**
+     * Retorna o relatório detalhado
+     * dos ingressos emitidos no site de vendas.
+     * 
+     * @param {number} categoria Id do evento no site
+     * @param {{
+     *  status: string?,
+     *  ingresso: string?
+     * }?} filtros Filtros de busca
+     * @param {string?} busca 
+     * @param {string?} linhas N° de linhas por página
+     * @param {string?} pagina Página da lista
+     * @returns 
+     */
+    static async getSiteDetalhados(categoria, filtros, busca, linhas, pagina) {
+        // Auxiliares da paginação
+        let l = parseInt(linhas)
+        let p = parseInt(pagina)
+
+        // Indicador de com ou sem paginação
+        let with_pages = !isNaN(l) && !isNaN(p)
+
+        // Filtro por status do ingresso
+        let status = null
+        if(filtros.status) {
+            status = await lltckt_order_status.findOne({
+                where: { name: filtros.status },
+                attributes: ['order_status_id']
+            })
+            .then(result => result?.order_status_id ?? 0)
+        }
+
+        // Filtro de busca
+        let filtro_busca = {}
+        if(busca) {
+            // Procura pelo RG do cliente
+            let find_customer = await lltckt_customer.findAll({
+                where: { rg: busca },
+                attributes: ['customer_id']
+            })
+            .then(result => (
+                { $or: result.map(a => a.customer_id)}
+            ))
+
+            filtro_busca = { $or: [
+                { order_id: busca },            // N° do pedido
+                { firstname: busca },           // Primeiro nome do cliente
+                { lastname: busca },            // Último nome do cliente
+                { customer_id: find_customer }, // RG do cliente
+                { payment_firstname: busca },   // Primeiro nome do comprador
+                { payment_lastname: busca }     // Último nome do comprador
+            ]}
+        }
+        
+        // Obtêm os pedidos no site
+        return await lltckt_order.findAndCountAll({
+            // Paginação
+            offset: with_pages ? (p -1) * l : undefined,
+            limit: with_pages ? l : undefined,
+
+            where: {
+                category_id: categoria,
+
+                // Filtro por status de ingresso
+                order_status_id: status ?? { $not: null },
+
+                // Filtros de busca
+                ...filtro_busca
+            },
+            attributes: [
+                'order_id',
+                'firstname',
+                'lastname',
+                'email',
+                'telephone',
+                'payment_firstname',
+                'payment_lastname',
+                'total',
+                'order_status_id',
+                'date_added'
+            ],
+            order: [['date_added', 'desc']],
+            include: [
+                // Produto no pedido
+                {
+                    model: lltckt_order_product,
+                    attributes: [
+                        'order_product_id',
+                        'name',
+                        'quantity',
+                        'price'
+                    ],
+
+                    where: {
+                        // Filtro por classe de ingresso
+                        name: filtros.ingresso ?? { $not: null }
+                    },
+
+                    // Produto
+                    include: {
+                        model: lltckt_product,
+                        attributes: ['product_id'],
+
+                        // Classe do ingresso
+                        include: {
+                            model: tbl_classes_ingressos,
+                            attributes: ['cla_nome']
+                        }
+                    }
+                },
+
+                // Comprador
+                {
+                    model: lltckt_customer,
+                    attributes: ['rg']
+                },
+
+                // Status do pedido
+                {
+                    model: lltckt_order_status,
+                    attributes: ['name']
+                }
+            ]
+        })
+        .then(({ count, rows }) => ({
+            total: with_pages ? Math.ceil(count / l) : undefined,
+            pagina: with_pages ? p : undefined,
+            count,
+            ingressos: rows.map(order => {
+                // Nome + RG do comprador
+                let comprador = `${order.payment_firstname} ${order.payment_lastname}`
+                    + `\nRG: ${order.lltckt_customer.rg}`
+                
+                // QUantidade de ingressos no pedido
+                let quant = order.lltckt_order_products.reduce((a, b) => a += b.quantity, 0)
+
+                // Ingressos dentro do pedido
+                let ingressos = []
+                order.lltckt_order_products.map(product => {
+                    // Nome da classe
+                    let classe = (product.lltckt_product?.tbl_classes_ingresso?.cla_nome ?? '').toUpperCase()
+
+                    // Classe solidária
+                    if(classe.toUpperCase() !== product.name.toUpperCase()) {
+                        classe += ` ${product.name.toUpperCase()}`
+                    }
+
+                    // Valor unitário da classe
+                    let valor = Shared.moneyFormat(product.price)
+
+                    // Adiciona o ingresso à listagem do pedido
+                    ingressos.push(`${product.quantity}x ${classe} ${valor}`)
+                })
+
+                // Retorna a lista de pedidos no site
+                return {
+                    pedido: order.order_id,
+                    data: order.date_added,
+                    status: order.lltckt_order_status?.name ?? 'Cancelado',
+                    comprador,
+                    nominado: `${order.firstname} ${order.lastname}`,
+                    email: order.email,
+                    telefone: order.telephone,
+                    quant,
+                    ingressos: ingressos.join('#').replace(/#/, '\n'),
+                    valor: Shared.moneyFormat(order.total)
+                }
+            })
+        }))
+    }
+
+    /**
+     * Retorna os filtros do relatório site detalhado.
+     * 
+     * @param {number} categoria Id do evento no site
+     * @returns 
+     */
+    static async getSiteDetalhadosFilter(categoria) {
+        let promises = [
+            lltckt_order_status.findAll({
+                where: {
+                    order_status_id: [2, 5, 6, 7, 13, 21]
+                },
+                attributes: ['name']
+            })
+            .then(result => {
+                let status = result.map(a => a.name)
+                status.unshift('Cancelado')
+                
+                return status
+            }),
+
+            lltckt_order_product.findAll({
+                attributes: ['name'],
+                group: [['name']],
+                order: [['name', 'asc']],
+                include: {
+                    model: lltckt_order,
+                    attributes: [],
+                    where: {
+                        category_id: categoria
+                    }
+                }
+            })
+            .then(result => result.map(a => a.name))
+        ]
+
+        return await Promise.all(promises).then(result => ({
+            status: result[0],
+            ingressos: result[1]
+        }))
     }
 
 }

@@ -181,4 +181,51 @@ export default class EventosController {
         })
     }
 
+    /**
+     * Retorna o relatório detalhado
+     * dos ingressos emitidos no site de vendas.
+     * 
+     * @param {Request} req 
+     * @param {Response} res 
+     */
+    static async getSiteDetalhados(req, res) {
+        let {
+            cat,
+            filtros,
+            busca,
+            linhas,
+            pagina
+        } = req.body
+
+        await RelatoriosAnaliticos.getSiteDetalhados(cat, filtros, busca, linhas, pagina)
+        .then(result => res.json(result))
+        .catch(e => {
+            console.error(e)
+            res.status(e?.status ?? 500).json({
+                error: 'Falha ao Obter as Vendas Detalhadas do Site',
+                message: e?.message ?? null
+            })
+        })
+    }
+
+    /**
+     * Retorna os filtros do relatório site detalhado.
+     * 
+     * @param {Request} req 
+     * @param {Response} res 
+     */
+    static async getSiteDetalhadosFilter(req, res) {
+        let { cat } = req.query
+
+        await RelatoriosAnaliticos.getSiteDetalhadosFilter(cat)
+        .then(result => res.json(result))
+        .catch(e => {
+            console.error(e)
+            res.status(e?.status ?? 500).json({
+                error: 'Falha ao Obter os Filtros do Site',
+                message: e?.message ?? null
+            })
+        })
+    }
+
 }
