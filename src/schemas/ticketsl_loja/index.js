@@ -2,11 +2,14 @@
 
 import lltckt_category_to_promoter from './lltckt_category_to_promoter.js'
 import lltckt_category from './lltckt_category.js'
+import lltckt_customer from './lltckt_customer.js'
 import lltckt_eve_categorias from './lltckt_eve_categorias.js'
 import lltckt_manufacturer from './lltckt_manufacturer.js'
 import lltckt_order_product_barcode from './lltckt_order_product_barcode.js'
 import lltckt_order_product from './lltckt_order_product.js'
+import lltckt_order_status from './lltckt_order_status.js'
 import lltckt_order from './lltckt_order.js'
+import lltckt_product_to_category from './lltckt_product_to_category.js'
 import lltckt_product from './lltckt_product.js'
 import lltckt_user from './lltckt_user.js'
 
@@ -15,11 +18,14 @@ import lltckt_user from './lltckt_user.js'
  */
 const schemas = {
     lltckt_category,
+    lltckt_customer,
     lltckt_eve_categorias,
     lltckt_manufacturer,
     lltckt_product,
+    lltckt_product_to_category,
     lltckt_user,
     lltckt_category_to_promoter,
+    lltckt_order_status,
     lltckt_order,
     lltckt_order_product,
     lltckt_order_product_barcode,

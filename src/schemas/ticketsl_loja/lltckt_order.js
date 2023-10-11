@@ -1,14 +1,18 @@
 import { DataTypes } from 'sequelize'
 import db_conn from './db_conn.js'
 
+import lltckt_customer from './lltckt_customer.js'
 import lltckt_category from './lltckt_category.js'
+import lltckt_order_status from './lltckt_order_status.js'
 
 
 /**
  * Tabela das vendas no site
  * 
  * foreign keys:
+ * - lltckt_customer (customer_id → customer_id)
  * - lltckt_category (category_id → category_id)
+ * - lltckt_order_status (order_status_id → order_status_id)
  */
 const lltckt_order = db_conn.define(
     'lltckt_order',
@@ -279,6 +283,17 @@ const lltckt_order = db_conn.define(
 
 // foreign keys
 
+// lltckt_customer (customer_id → customer_id)
+lltckt_customer.hasMany(lltckt_order, {
+    foreignKey: 'customer_id',
+    sourceKey: 'customer_id',
+    hooks: true
+})
+lltckt_order.belongsTo(lltckt_customer, {
+    foreignKey: 'customer_id',
+    targetKey: 'customer_id'
+})
+
 // lltckt_category (category_id → category_id)
 lltckt_category.hasMany(lltckt_order, {
     foreignKey: 'category_id',
@@ -290,6 +305,17 @@ lltckt_category.hasMany(lltckt_order, {
 lltckt_order.belongsTo(lltckt_category, {
     foreignKey: 'category_id',
     targetKey: 'category_id'
+})
+
+// lltckt_order_status (order_status_id → order_status_id)
+lltckt_order_status.hasMany(lltckt_order, {
+    foreignKey: 'order_status_id',
+    sourceKey: 'order_status_id',
+    hooks: true
+})
+lltckt_order.belongsTo(lltckt_order_status, {
+    foreignKey: 'order_status_id',
+    targetKey: 'order_status_id'
 })
 
 export default lltckt_order

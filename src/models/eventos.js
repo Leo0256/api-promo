@@ -341,7 +341,8 @@ export default class Eventos {
                         })
                         .then(orders => {
                             orders.map(({ dataValues: order }) => {
-                                let valor = parseFloat(order.lltckt_order_product.total)
+                                let valor = order.lltckt_order_products.reduce((a, b) => a += parseFloat(b.total), 0)
+
                                 switch (order.payment_method) {
                                     // Crédito/Débito?
                                     case 'PagSeguro':
@@ -691,7 +692,7 @@ export default class Eventos {
 
             result.map(ing => {
                 // Auxiliar do status do ingresso no site
-                let order_status = ing?.lltckt_order_product_barcode?.lltckt_order_product?.lltckt_order?.order_status_id
+                let order_status = ing?.lltckt_order_product_barcode?.lltckt_order_product[0]?.lltckt_order?.order_status_id
 
                 // Ingresso vendido, não cancelado
                 let vendido = !![1,2].find(a => a == ing.ing_status) && (!order_status || order_status === 5)
@@ -908,7 +909,7 @@ export default class Eventos {
 
             result.map(ing => {
                 // Auxiliar do status do ingresso no site
-                let order_status = ing?.lltckt_order_product_barcode?.lltckt_order_product?.lltckt_order?.order_status_id
+                let order_status = ing?.lltckt_order_product_barcode?.lltckt_order_product[0]?.lltckt_order?.order_status_id
 
                 // Ingresso vendido, não cancelado
                 let vendido = !![1,2].find(a => a == ing.ing_status) && (!order_status || order_status === 5)

@@ -63,7 +63,7 @@ const lltckt_order_product = db_conn.define(
 // foreign keys
 
 // lltckt_order (order_id → order_id)
-lltckt_order.hasOne(lltckt_order_product, {
+lltckt_order.hasMany(lltckt_order_product, {
     foreignKey: 'order_id',
     sourceKey: 'order_id',
     onDelete: 'cascade',
