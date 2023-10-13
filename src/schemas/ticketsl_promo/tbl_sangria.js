@@ -3,6 +3,7 @@ import db_conn from './db_conn.js'
 
 import tbl_eventos from './tbl_eventos.js'
 import tbl_pdvs from './tbl_pdvs.js'
+import tbl_usuarios from './tbl_usuarios.js'
 
 
 /**
@@ -11,6 +12,7 @@ import tbl_pdvs from './tbl_pdvs.js'
  * foreign keys:
  * - tbl_eventos (san_evento → eve_cod)
  * - tbl_pdvs (san_pdv → pdv_id)
+ * - tbl_usuarios (san_usuario → usu_id)
  */
 const tbl_sangria = db_conn.define(
     'tbl_sangria',
@@ -76,6 +78,19 @@ tbl_pdvs.hasMany(tbl_sangria, {
 tbl_sangria.belongsTo(tbl_pdvs, {
     foreignKey: 'san_pdv',
     targetKey: 'pdv_id'
+})
+
+// tbl_usuarios (san_usuario → usu_id)
+tbl_usuarios.hasMany(tbl_sangria, {
+    foreignKey: 'san_usuario',
+    sourceKey: 'usu_id',
+    onUpdate: 'restrict',
+    onDelete: 'restrict',
+    hooks: true
+})
+tbl_sangria.belongsTo(tbl_usuarios, {
+    foreignKey: 'san_usuario',
+    targetKey: 'usu_id'
 })
 
 export default tbl_sangria

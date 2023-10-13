@@ -17,6 +17,7 @@ import tbl_pdvs from './tbl_pdvs.js'
 import tbl_pos from './tbl_pos.js'
 import tbl_sangria from './tbl_sangria.js'
 import tbl_status_impressao from './tbl_status_impressao.js'
+import tbl_usuarios from './tbl_usuarios.js'
 import tbl_venda_impressao from './tbl_venda_impressao.js'
 import tbl_venda_ingressos from './tbl_venda_ingressos.js'
 import venda_item from './venda_item.js'
@@ -29,6 +30,7 @@ const schemas = {
     tbl_eventos,
     tbl_meio_pgto,
     tbl_status_impressao,
+    tbl_usuarios,
     tbl_venda_ingressos,
     tbl_categorias_classes_ingressos,
     tbl_classes_ingressos,
