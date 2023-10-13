@@ -228,4 +228,24 @@ export default class EventosController {
         })
     }
 
+    /**
+     * Retorna o relatório de sangrias dos PDVs.
+     * 
+     * @param {Request} req 
+     * @param {Response} res 
+     */
+    static async getSangrias(req, res) {
+        let { evento } = req.query
+
+        await Eventos.getSangrias(evento)
+        .then(result => res.json(result))
+        .catch(e => {
+            console.error(e)
+            res.status(e?.status ?? 500).json({
+                error: 'Falha ao Obter as Sangrias',
+                message: e?.message ?? null
+            })
+        })
+    }
+
 }

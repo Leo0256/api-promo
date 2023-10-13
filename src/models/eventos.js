@@ -1,4 +1,4 @@
-import { col, where, Op } from 'sequelize'
+import { col, where, Op, fn } from 'sequelize'
 import schemas from '../schemas/index.js'
 import Shared from './shared.js'
 
@@ -14,6 +14,8 @@ const {
     tbl_categorias_classes_ingressos,
     tbl_classe_grupo,
     tbl_classe_numeracao,
+    tbl_sangria,
+    tbl_usuarios,
 } = schemas.ticketsl_promo
 
 const {
@@ -1463,6 +1465,87 @@ export default class Eventos {
 
             // Retorna o relatório de numerados
             return classes
+        })
+    }
+
+    /**
+     * Retorna o relatório de sangrias dos PDVs.
+     * 
+     * @param {number} evento Id do evento
+     * @returns 
+     */
+    static async getSangrias(evento) {
+        // Obtêm os PDVs que possuem vendas no evento
+        return await tbl_pdvs.findAll({
+            attributes: [
+                ['pdv_nome', 'nome'],
+                [fn('sum', col('ing_valor')), 'valor_vendas']
+            ],
+            include: [
+                // Ingressos vendidos no PDV
+                {
+                    model: tbl_ingressos,
+                    where: {
+                        ing_evento: evento,
+                        ing_status: [1, 2]
+                    },
+                    attributes: []
+                },
+
+                // Sangrias realizadas no PDV
+                {
+                    model: tbl_sangria,
+                    separate: true,
+                    where: {
+                        san_evento: evento
+                    },
+                    attributes: [
+                        ['san_data_hora', 'data'],
+                        [col('tbl_usuario.usu_nome'), 'usuario'],
+                        ['san_valor', 'valor'],
+                    ],
+                    order: [['san_data_hora', 'desc']],
+                    include: {
+                        model: tbl_usuarios,
+                        attributes: []
+                    }
+                }
+            ]
+        })
+        .then(result => {
+            // Auxiliar dos PDVs
+            let pdvs = JSON.parse(JSON.stringify(result))
+
+            pdvs.map(pdv => {
+                // Calcula o total sangrado
+                pdv.valor_sangrias = parseFloat(
+                    pdv.tbl_sangria.reduce((a, b) => a += b.valor, 0)
+                    .toFixed(2)
+                )
+
+                // Calcula o saldo de vendas
+                pdv.valor_saldo = Shared.moneyFormat(
+                    parseFloat(pdv.valor_vendas) - pdv.valor_sangrias
+                )
+
+                // Formata os faturamentos de vendas e sangrias
+                pdv.valor_vendas = Shared.moneyFormat(pdv.valor_vendas)
+                pdv.valor_sangrias = Shared.moneyFormat(pdv.valor_sangrias)
+
+                // Formata os valores sangrados
+                pdv.tbl_sangria.map(sangria => {
+                    sangria.valor = Shared.moneyFormat(sangria.valor)
+                })
+
+                // Renomeia a lista de sangrias
+                pdv.sangrias = pdv.tbl_sangria
+                
+                delete pdv.tbl_sangria
+                delete pdv.pdv_id
+            })
+
+            // Retorna o relatório de sangrias dos PDVs
+            return pdvs
         })
     }
 

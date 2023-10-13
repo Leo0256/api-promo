@@ -17,4 +17,6 @@ router.get('/detalhados/filtros', Eventos.getDetalhadosFilter)
 router.post('/site', Eventos.getSiteDetalhados)
 router.get('/site/filtros', Eventos.getSiteDetalhadosFilter)
 
+router.get('/sangrias', Eventos.getSangrias)
+
 export default router
