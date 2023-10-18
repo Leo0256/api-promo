@@ -55,9 +55,9 @@ export default class Eventos {
 
         let status_evento
         switch(parseInt(tipo)) {
-            // Correntes
+            // Todos
             case 1:
-                status_evento = { eve_data: { $gte: dia_hoje } }
+                status_evento = {}
                 break
 
             // Encerrados
@@ -65,9 +65,9 @@ export default class Eventos {
                 status_evento = { eve_data: { $lt: dia_hoje } }
                 break
 
-            // Todos
+            // Correntes
             default:
-                status_evento = {}
+                status_evento = { eve_data: { $gte: dia_hoje } }
                 break
         }
         
