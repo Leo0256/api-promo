@@ -453,7 +453,7 @@ export default class RelatoriosAnaliticos {
 
         // Filtro por status do ingresso
         let status = null
-        if(filtros.status) {
+        if(filtros?.status) {
             status = await lltckt_order_status.findOne({
                 where: { name: filtros.status },
                 attributes: ['order_status_id']
@@ -524,7 +524,7 @@ export default class RelatoriosAnaliticos {
 
                     where: {
                         // Filtro por classe de ingresso
-                        name: filtros.ingresso ?? { $not: null }
+                        name: filtros?.ingresso ?? { $not: null }
                     },
 
                     // Produto
@@ -562,7 +562,7 @@ export default class RelatoriosAnaliticos {
                 let comprador = `${order.payment_firstname} ${order.payment_lastname}`
                     + `\nRG: ${order.lltckt_customer.rg}`
                 
-                // QUantidade de ingressos no pedido
+                // Quantidade de ingressos no pedido
                 let quant = order.lltckt_order_products.reduce((a, b) => a += b.quantity, 0)
 
                 // Ingressos dentro do pedido
