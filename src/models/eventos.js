@@ -1,4 +1,4 @@
-import { col, where, Op, fn } from 'sequelize'
+import { col, where, Op, fn, literal } from 'sequelize'
 import schemas from '../schemas/index.js'
 import Shared from './shared.js'
 
@@ -85,7 +85,10 @@ export default class Eventos {
             },
 
             attributes: ['codCatSite'],
-            order: [[col('tbl_evento.eve_data'), 'asc']],
+            order: [
+                [literal('CASE WHEN tbl_evento.eve_data >= now() THEN 1 ELSE 2 END')],
+                [col('tbl_evento.eve_data'), 'asc']
+            ],
             subQuery: false,
             include: [
                 // Eventos
