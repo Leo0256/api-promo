@@ -14,9 +14,9 @@ export default class EventosController {
      */
     static async getEventos(req, res) {
         let { user_id } = req.body['token_data']
-        let { p, tipo } = req.query
+        let { busca, tipo, p } = req.query
 
-        await Eventos.getEventos(user_id, null, tipo, p)
+        await Eventos.getEventos(user_id, null, busca, tipo, p)
         .then(result => res.json(result))
         .catch(e => {
             console.error(e)

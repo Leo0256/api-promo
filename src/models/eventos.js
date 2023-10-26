@@ -38,6 +38,7 @@ export default class Eventos {
      * 
      * @param {number} user_id Id do Promotor
      * @param {number?} evento Filtro por evento
+     * @param {string?} busca Busca pelo nome do evento
      * @param {number|string|null} tipo Filtro entre eventos:
      * - `0`: `Todos` (padrão);
      * - `1`: `Correntes`;
@@ -45,7 +46,7 @@ export default class Eventos {
      * @param {number|string|null} pagina Página dos retornos
      * @returns 
      */
-    static async getEventos(user_id, evento, tipo, pagina) {
+    static async getEventos(user_id, evento, busca, tipo, pagina) {
         // Auxiliar da página
         let p = !!pagina ? parseInt(pagina) : 1
 
@@ -99,8 +100,13 @@ export default class Eventos {
                         'eve_cidade'
                     ],
 
-                    // Filtro pelo status do evento
-                    where: { ...status_evento },
+                    where: {
+                        // Filtro pelo status do evento
+                        ...status_evento,
+
+                        // Busca pelo nome do evento
+                        eve_nome: { $like: !!busca ? `%${busca.trim()}%` : '%' }
+                    },
 
                     // Ingressos emitidos
                     include: {
