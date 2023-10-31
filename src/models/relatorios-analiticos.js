@@ -524,7 +524,9 @@ export default class RelatoriosAnaliticos {
 
                     where: {
                         // Filtro por classe de ingresso
-                        name: filtros?.ingresso ?? { $not: null }
+                        name: {
+                            $like: `%${filtros?.ingresso ?? ''}%`
+                        }
                     },
 
                     // Produto
