@@ -663,7 +663,8 @@ export default class Eventos {
                 'ing_status',
                 'ing_valor',
                 'ing_meia',
-                'ing_solidario'
+                'ing_solidario',
+                'ing_meia'
             ],
 
             include: [
@@ -720,6 +721,10 @@ export default class Eventos {
                 // Nome da classe (+ nome solidário, se houver)
                 let classe_nome = (`${ing.tbl_classes_ingresso.cla_nome} ${solidario ?? ''}`).trim()
 
+                // Meia entrada
+                if(ing.ing_meia) {
+                    classe_nome += ' Meia-Entrada'
+                }
 
                 // Procura pela categoria registrada
                 let cat_index = categorias.findIndex(a => (
@@ -837,6 +842,9 @@ export default class Eventos {
             // Ordena as categorias
             categorias.sort((a, b) => a.categoria.localeCompare(b.categoria))
 
+            // Ordena as classes
+            categorias.map(cat => cat.classes.sort((a, b) => a.classe.localeCompare(b.classe)))
+
             // Retorna as categorias/classes sem categoria
             return categorias
         })
@@ -877,7 +885,8 @@ export default class Eventos {
                 'ing_valor',
                 'ing_data_compra',
                 'ing_mpgto',
-                'ing_solidario'
+                'ing_solidario',
+                'ing_meia'
             ],
 
             include: [
@@ -945,6 +954,11 @@ export default class Eventos {
 
                 // Nome da classe (+ nome solidário, se houver)
                 let classe_nome = (`${ing.tbl_classes_ingresso.cla_nome} ${solidario ?? ''}`).trim()
+
+                // Meia entrada
+                if(ing.ing_meia) {
+                    classe_nome += ' Meia-Entrada'
+                }
 
                 // Procura pelo PDV registrado
                 let pdv_index = pdvs.findIndex(a => a.pdv === pdv_nome)
@@ -1088,6 +1102,9 @@ export default class Eventos {
 
             // Ordena os PDVs
             pdvs.sort((a, b) => a.pdv.localeCompare(b.pdv))
+
+            // Ordena as classes
+            pdvs.map(pdv => pdv.classes.sort((a, b) => a.classe.localeCompare(b.classe)))
 
             // Retorna os PDVs
             return pdvs
