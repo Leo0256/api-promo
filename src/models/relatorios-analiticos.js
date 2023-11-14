@@ -28,43 +28,20 @@ export default class RelatoriosAnaliticos {
      * Define o status da venda.
      * 
      * @param {number} status_id Id do status
-     * @param {boolean} order Venda pelo site
      */
-    static set_status(status_id, order) {
-        if(order) {
-            switch(status_id) {
-                case 1:
-                    return 'AGUARD. PAGAMENTO'
-                
-                case 5:
-                    return 'APROVADO'
-                
-                case 6:
-                    return 'ESTORNADO'
-                
-                case 7:
-                    return 'NÃO APROVADO'
-                
-                case 21:
-                    return 'AGUARD. PIX'
-                
-                default: return '-'
-            }
-        }
-        else {
-            switch(status_id) {
-                case 0:
-                    return 'AGUARD. PAGAMENTO'
-                
-                case 1:
-                case 2:
-                    return 'APROVADO'
-                
-                case 3:
-                    return 'ESTORNADO'
-                
-                default: return '-'
-            }
+    static set_status(status_id) {
+        switch(status_id) {
+            case 0:
+                return 'Processado'
+            
+            case 1:
+            case 2:
+                return 'Aprovado'
+            
+            case 3:
+                return 'Estornado'
+            
+            default: return '-'
         }
     }
 
@@ -279,15 +256,16 @@ export default class RelatoriosAnaliticos {
                         model: lltckt_order_product,
                         include: {
                             model: lltckt_order,
-                            where: {
-                                order_status_id: { $in: [ 1, 5, 6, 7, 21 ]}
-                            },
                             attributes: [
                                 'order_id',
                                 'payment_method',
                                 'order_status_id',
                                 'date_added'
-                            ]
+                            ],
+                            include: {
+                                model: lltckt_order_status,
+                                attributes: ['name']
+                            }
                         }
                     }
                 }
@@ -312,7 +290,7 @@ export default class RelatoriosAnaliticos {
                         pos: ing.ing_pos,
                         pedido: '-',
                         cod_barras: ing.ing_cod_barras,
-                        situacao: this.set_status(ing.ing_status, false),
+                        situacao: this.set_status(ing.ing_status),
                         ing: classe,
                         ing_num: ing.tbl_classe_numeracao?.cln_num ?? '-',
                         valor: Shared.moneyFormat(valor),
@@ -324,19 +302,19 @@ export default class RelatoriosAnaliticos {
                 // Ingresso vendido no site
                 else {
                     // Auxiliar do ingresso no site
-                    let order = ing.lltckt_order_product_barcode.lltckt_order_product.lltckt_order
+                    let order = ing.lltckt_order_product_barcode?.lltckt_order_product?.lltckt_order
 
                     return {
                         data_compra: ing.ing_data_compra,
                         pdv: 'Quero Ingresso - Internet',
                         pos: null,
-                        pedido: order.order_id,
+                        pedido: order?.order_id ?? '-',
                         cod_barras: ing.ing_cod_barras,
-                        situacao: this.set_status(order.order_status_id, true),
+                        situacao: order?.lltckt_order_status.name ?? '-',
                         ing: classe,
                         ing_num: ing.tbl_classe_numeracao?.cln_num ?? '-',
                         valor: Shared.moneyFormat(valor),
-                        pagamento: rename_mpgto(order.payment_method, valor),
+                        pagamento: rename_mpgto(order?.payment_method ?? '-', valor),
                         cod_pagseguro: ing?.tbl_venda_ingresso?.vend_pagseguro_cod ?? '-'
                     }
                 }
