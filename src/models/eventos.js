@@ -85,6 +85,7 @@ export default class Eventos {
             },
 
             attributes: ['codCatSite'],
+            group: [['codCatSite']],
             order: [
                 [literal('CASE WHEN tbl_evento.eve_data >= now() THEN 1 ELSE 2 END')],
                 [col('tbl_evento.eve_data'), 'asc']
@@ -174,7 +175,7 @@ export default class Eventos {
         })
         .then(({ rows, count }) => ({
             pagina: p,
-            total: Math.ceil(count / 10),
+            total: Math.ceil((count?.length ?? count) / 10),
             eventos: rows.map(a => {
                 // Dados do evento
                 let evento = a.getDataValue('tbl_evento')?.dataValues
