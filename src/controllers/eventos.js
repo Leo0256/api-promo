@@ -130,6 +130,26 @@ export default class EventosController {
     }
 
     /**
+     * Retorna o relatório de ingressos cancelados.
+     * 
+     * @param {Request} req 
+     * @param {Response} res 
+     */
+    static async getCancelados(req, res) {
+        let { evento, l, p } = req.query
+
+        await Eventos.getCancelados(evento, l, p)
+        .then(result => res.json(result))
+        .catch(e => {
+            console.error(e)
+            res.status(e?.status ?? 500).json({
+                error: 'Falha ao Obter o Relatório de Cancelados',
+                message: e?.message ?? null
+            })
+        })
+    }
+
+    /**
      * Retorna o relatório detalhado
      * dos ingressos emitidos no evento.
      * 

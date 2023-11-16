@@ -11,6 +11,7 @@ router.get('/classes', Eventos.getClasses)
 router.get('/pdvs', Eventos.getPDVs)
 router.get('/diarios', Eventos.getDiarios)
 router.get('/numerados', Eventos.getNumerados)
+router.get('/cancelados', Eventos.getCancelados)
 
 router.post('/detalhados', Eventos.getDetalhados)
 router.get('/detalhados/filtros', Eventos.getDetalhadosFilter)

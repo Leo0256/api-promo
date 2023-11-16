@@ -16,6 +16,8 @@ const {
     tbl_classe_numeracao,
     tbl_sangria,
     tbl_usuarios,
+    tbl_meio_pgto,
+    tbl_venda_ingressos,
 } = schemas.ticketsl_promo
 
 const {
@@ -25,6 +27,7 @@ const {
     lltckt_order_product,
     lltckt_order,
     lltckt_order_product_barcode,
+    lltckt_order_status,
 } = schemas.ticketsl_loja
 
 /**
@@ -1493,6 +1496,188 @@ export default class Eventos {
             // Retorna o relatório de numerados
             return classes
         })
+    }
+
+    /**
+     * Retorna o relatório de ingressos cancelados.
+     * 
+     * @param {number} evento Id do evento
+     * @param {number?} linhas Nº de linhas por página
+     * @param {number?} pagina Página da lista
+     * @returns 
+     */
+    static async getCancelados(evento, linhas, pagina) {
+
+        /**
+         * Renomeia a forma de pagamento.
+         * 
+         * @param {string} nome Forma de pagamento
+         * @param {number} valor Valor do ingresso
+         * @returns 
+         */
+        const rename_mpgto = (nome, valor) => {
+            // Ingressos sem valor são considerados como cortesias
+            if(valor == 0)
+                return 'CORTESIA'
+
+            // Alinha as formas de pagamento do site com as dos PDVs
+            switch (nome) {
+                case 'CREDITO':
+                case 'PagSeguro':
+                    return 'CARTÃO DE CRÉDITO'
+                
+                case 'DEBITO':
+                    return 'DÉBITO'
+            
+                default:
+                    return nome
+            }
+        }
+
+        // Auxiliares da paginação
+        let l = parseInt(linhas)
+        let p = parseInt(pagina)
+
+        // Indicador de com ou sem paginação
+        let with_pages = !isNaN(l) && !isNaN(p)
+
+        // Retorna os ingressos cancelados do evento
+        return await tbl_ingressos.findAndCountAll({
+            // Paginação
+            offset: with_pages ? (p -1) * l : undefined,
+            limit: with_pages ? l : undefined,
+
+            where: {
+                ing_evento: evento,
+
+                // Filtro de ingressos cancelados
+                $or: [
+                    { ing_status: 3 },
+                    where(
+                        col('lltckt_order_product_barcode->lltckt_order_product->lltckt_order.order_status_id'),
+                        Op.in,
+                        [[6, 7, 8, 11, 13]]
+                    )
+                ]
+            },
+            attributes: [
+                'ing_data_compra',
+                'ing_pdv',
+                'ing_pos',
+                'ing_cod_barras',
+                'ing_status',
+                'ing_classe_ingresso',
+                'cln_cod',
+                'ing_valor',
+                'ing_mpgto',
+                'ing_solidario',
+                'ing_meia'
+            ],
+            order: [['ing_data_compra', 'DESC']],
+            include: [
+                // PDV
+                {
+                    model: tbl_pdvs,
+                    attributes: [ 'pdv_nome' ]
+                },
+
+                // Classe do ingresso
+                {
+                    model: tbl_classes_ingressos,
+                    attributes: [ 'cla_nome' ]
+                },
+
+                // Classe do ingresso numerado
+                {
+                    model: tbl_classe_numeracao,
+                    attributes: [ 'cln_num' ]
+                },
+
+                // Forma de pagamento (PDVs)
+                tbl_meio_pgto,
+
+                // Dados de venda pelos PDVs
+                {
+                    model: tbl_venda_ingressos,
+                    attributes: ['vend_pagseguro_cod']
+                },
+
+                // Ingresso no site
+                {
+                    model: lltckt_order_product_barcode,
+                    include: {
+                        model: lltckt_order_product,
+                        include: {
+                            model: lltckt_order,
+                            attributes: [
+                                'order_id',
+                                'payment_method',
+                                'order_status_id',
+                                'date_added'
+                            ],
+                            include: {
+                                model: lltckt_order_status,
+                                attributes: ['name']
+                            }
+                        }
+                    }
+                }
+            ]
+        })
+        .then(({ rows, count }) => ({
+            total: with_pages ? Math.ceil(count / l) : undefined,
+            pagina: with_pages ? p : undefined,
+            count,
+            ingressos: rows.map(ing => {
+                // Auxiliar do valor do ingresso
+                let valor = parseFloat(ing.ing_valor)
+
+                // Classe (+ nome do solidário, se houver)
+                let classe = (`${ing.tbl_classes_ingresso.cla_nome} ${ing?.ing_solidario ?? ''}`).trim()
+
+                // Meia entrada
+                if(ing.ing_meia) {
+                    classe += ' Meia-Entrada'
+                }
+
+                // Ingresso vendido nos PDVs
+                if(ing.ing_pos) {
+                    return {
+                        data_compra: ing.ing_data_compra,
+                        pdv: ing.tbl_pdv.pdv_nome,
+                        pos: ing.ing_pos,
+                        pedido: '-',
+                        cod_barras: ing.ing_cod_barras,
+                        situacao: 'Cancelado',
+                        ing: classe,
+                        ing_num: ing.tbl_classe_numeracao?.cln_num ?? '-',
+                        valor: Shared.moneyFormat(valor),
+                        pagamento: rename_mpgto(ing.tbl_meio_pgto.mpg_nome, valor),
+                        cod_pagseguro: ing?.tbl_venda_ingresso?.vend_pagseguro_cod ?? '-'
+                    }
+                }
+
+                // Ingresso vendido no site
+                else {
+                    // Auxiliar do ingresso no site
+                    let order = ing.lltckt_order_product_barcode?.lltckt_order_product?.lltckt_order
+
+                    return {
+                        data_compra: ing.ing_data_compra,
+                        pdv: 'Quero Ingresso - Internet',
+                        pos: null,
+                        pedido: order?.order_id ?? '-',
+                        cod_barras: ing.ing_cod_barras,
+                        situacao: order?.lltckt_order_status.name ?? '-',
+                        ing: classe,
+                        ing_num: ing.tbl_classe_numeracao?.cln_num ?? '-',
+                        valor: Shared.moneyFormat(valor),
+                        pagamento: rename_mpgto(order?.payment_method ?? '-', valor),
+                        cod_pagseguro: ing?.tbl_venda_ingresso?.vend_pagseguro_cod ?? '-'
+                    }
+                }
+            })
+        }))
     }
 
     /**
