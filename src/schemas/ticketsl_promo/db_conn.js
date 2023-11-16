@@ -27,6 +27,13 @@ const ticketsl_promo = new Sequelize({
         freezeTableName: true,
         timestamps: false
     },
+    pool: {
+        max: 3,
+        min: 0,
+        acquire: 3000,
+        evict: 1000,
+        idle: 0
+    },
     timezone: '-03:00', // timezone GMT-3 de Brasília
     operatorsAliases: operatorsAliases
 })
