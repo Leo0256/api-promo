@@ -43,8 +43,8 @@ export default class Eventos {
      * @param {number?} evento Filtro por evento
      * @param {string?} busca Busca pelo nome do evento
      * @param {number|string|null} tipo Filtro entre eventos:
-     * - `0`: `Todos` (padrão);
-     * - `1`: `Correntes`;
+     * - `0`: `Correntes` (padrão);
+     * - `1`: `Todos`;
      * - `2`: `Encerrados`.
      * @param {number|string|null} pagina Página dos retornos
      * @returns 
@@ -469,7 +469,7 @@ export default class Eventos {
                 })
             }),
 
-            this.getEventos(user_id, evento)
+            this.getEventos(user_id, evento, null, 1)
             .then(({ eventos: result }) => {
                 let {
                     // Ingressos Emitidos
