@@ -260,7 +260,8 @@ export default class RelatoriosAnaliticos {
                                 'order_id',
                                 'payment_method',
                                 'order_status_id',
-                                'date_added'
+                                'date_added',
+                                'pagseguro_code'
                             ],
                             include: {
                                 model: lltckt_order_status,
@@ -282,6 +283,9 @@ export default class RelatoriosAnaliticos {
                 // Classe (+ nome do solidário, se houver)
                 let classe = (`${ing.tbl_classes_ingresso.cla_nome} ${ing?.ing_solidario ?? ''}`).trim()
 
+                // Auxiliar do código de transação
+                let cod_pagseguro = ing?.tbl_venda_ingresso?.vend_pagseguro_cod?.trim()
+
                 // Ingresso vendido nos PDVs
                 if(ing.ing_pos) {
                     return {
@@ -295,7 +299,7 @@ export default class RelatoriosAnaliticos {
                         ing_num: ing.tbl_classe_numeracao?.cln_num ?? '-',
                         valor: Shared.moneyFormat(valor),
                         pagamento: rename_mpgto(ing.tbl_meio_pgto.mpg_nome, valor),
-                        cod_pagseguro: ing?.tbl_venda_ingresso?.vend_pagseguro_cod ?? '-'
+                        cod_pagseguro: !!cod_pagseguro ? cod_pagseguro : '-'
                     }
                 }
 
@@ -303,6 +307,10 @@ export default class RelatoriosAnaliticos {
                 else {
                     // Auxiliar do ingresso no site
                     let order = ing.lltckt_order_product_barcode?.lltckt_order_product?.lltckt_order
+
+                    // Auxiliar do código de transação
+                    let cod_pagseguro = ing?.tbl_venda_ingresso?.vend_pagseguro_cod?.trim()
+                        ?? order?.pagseguro_code
 
                     return {
                         data_compra: ing.ing_data_compra,
@@ -315,7 +323,7 @@ export default class RelatoriosAnaliticos {
                         ing_num: ing.tbl_classe_numeracao?.cln_num ?? '-',
                         valor: Shared.moneyFormat(valor),
                         pagamento: rename_mpgto(order?.payment_method ?? '-', valor),
-                        cod_pagseguro: ing?.tbl_venda_ingresso?.vend_pagseguro_cod ?? '-'
+                        cod_pagseguro: !!cod_pagseguro ? cod_pagseguro : '-'
                     }
                 }
             })
