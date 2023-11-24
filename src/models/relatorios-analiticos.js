@@ -218,6 +218,7 @@ export default class RelatoriosAnaliticos {
                 'cln_cod',
                 'ing_valor',
                 'ing_mpgto',
+                'ing_meia',
                 'ing_solidario'
             ],
             order: [['ing_data_compra', 'DESC']],
@@ -282,6 +283,11 @@ export default class RelatoriosAnaliticos {
 
                 // Classe (+ nome do solidário, se houver)
                 let classe = (`${ing.tbl_classes_ingresso.cla_nome} ${ing?.ing_solidario ?? ''}`).trim()
+
+                // Meia entrada
+                if(ing.ing_meia) {
+                    classe += ' Meia-Entrada'
+                }
 
                 // Auxiliar do código de transação
                 let cod_pagseguro = ing?.tbl_venda_ingresso?.vend_pagseguro_cod?.trim()
