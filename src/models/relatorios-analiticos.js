@@ -393,14 +393,10 @@ export default class RelatoriosAnaliticos {
         ]
 
         // Situação/status dos ingressos
-        const situacao = [
-            'AGUARD. PAGAMENTO',
-            'APROVADO',
-            'ESTORNADO',
-            'NÃO APROVADO',
-            'AGUARD. PIX',
-            '-'
-        ]
+        const situacao = await lltckt_order_status.findAll({
+            attributes: ['name']
+        })
+        .then(a => a.map(a => a.name))
 
         // Retorna os dados após terminar as promises
         return await Promise.all(promises).then(result => {
