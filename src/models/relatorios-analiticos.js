@@ -514,17 +514,30 @@ export default class RelatoriosAnaliticos {
                         }
                     },
 
-                    // Produto
-                    include: {
-                        model: lltckt_product,
-                        attributes: ['product_id'],
+                    include: [
+                        // Produto
+                        {
+                            model: lltckt_product,
+                            attributes: ['product_id'],
 
-                        // Classe do ingresso
-                        include: {
-                            model: tbl_classes_ingressos,
-                            attributes: ['cla_nome']
+                            // Classe do ingresso
+                            include: {
+                                model: tbl_classes_ingressos,
+                                attributes: ['cla_nome']
+                            }
+                        },
+
+                        {
+                            model: lltckt_order_product_barcode,
+                            attributes: [],
+                            required: true,
+                            include: {
+                                model: tbl_ingressos,
+                                where: { ing_pos: null },
+                                attributes: []
+                            }
                         }
-                    }
+                    ]
                 },
 
                 // Comprador
