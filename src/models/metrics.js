@@ -40,8 +40,7 @@ export default class Metrics {
 
         // Filtro das cortesias
         const cortesias = {
-            ing: {},
-            order: {}
+            ing: {}
         }
 
         // Define o filtro para somente os ingressos vendidos
@@ -53,13 +52,16 @@ export default class Metrics {
         // Define o filtro para remover as cortesias
         if(sem_cortesias) {
             cortesias.ing = { ing_valor: { $gt: 0 } }
-            cortesias.order = { total: { $gt: 0 } }
         }
 
         // Retorna a lista dos ingressos
         return await tbl_ingressos.findAll({
             where: {
                 ing_evento: evento,
+                $or: [
+                    { ing_pdv: { $not: null }},
+                    where(col('lltckt_order_product_barcode.barcode'), Op.not, null)
+                ],
                 ...vendidos.ing,
                 ...cortesias.ing
             },
@@ -90,16 +92,12 @@ export default class Metrics {
                     include: {
                         model: lltckt_order_product,
                         required: true,
-                        attributes: [
-                            'total',
-                            'quantity'
-                        ],
+                        attributes: ['order_id'],
                         include: {
                             model: lltckt_order,
                             required: true,
                             where: {
-                                ...vendidos.order,
-                                ...cortesias.order
+                                ...vendidos.order
                             },
                             attributes: [ 
                                 'order_status_id',
