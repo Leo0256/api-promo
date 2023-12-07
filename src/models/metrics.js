@@ -1,3 +1,4 @@
+import { col, where, Op } from 'sequelize'
 import schemas from '../schemas/index.js'
 import Shared from './shared.js'
 
@@ -198,103 +199,62 @@ export default class Metrics {
                 {
                     model: tbl_ingressos,
                     where: {
-                        ing_pdv: { $not: null },
-                        ing_status: [ 1, 2 ]
+                        ing_status: [ 1, 2 ],
+                        $or: [
+                            { ing_pdv: { $not: null }},
+                            where(col('lltckt_order_product_barcode.barcode'), Op.not, null)
+                        ]
                     },
                     required: false,
                     separate: true,
                     attributes: [
                         'ing_cod_barras',
                         'ing_valor'
-                    ]
-                },
-                {
-                    model: lltckt_product,
-                    required: false,
-                    separate: true,
-                    attributes: [ 'product_id' ],
+                    ],
                     include: {
-                        model: lltckt_order_product,
-                        required: true,
-                        attributes: [
-                            'quantity',
-                            'total'
-                        ],
-                        include: [
-                            {
+                        model: lltckt_order_product_barcode,
+                        required: false,
+                        attributes: [],
+                        include: {
+                            model: lltckt_order_product,
+                            required: true,
+                            attributes: [],
+                            include: {
                                 model: lltckt_order,
-                                attributes: ['order_id'],
-                                where: { order_status_id: 5 }
-                            },
-
-                            /*
-                                Algumas rows estão quebradas, sendo necessário um filtro forçado
-                                entre as 'orders' com ligação com algum registro de ingressos
-                                no schema 'ticketsl_promo'
-                            */
-                            {
-                                model: lltckt_order_product_barcode,
-                                required: true
+                                required: true,
+                                where: { order_status_id: 5 },
+                                attributes: []
                             }
-                        ]
+                        }
                     }
-                }
+                },
             ]
         })
         .then(result => {
             const data = []
 
             result.map(({ dataValues: classe }) => {
-
-                // PDVs - início
-                // Quantidade vendida
-                let pdv_quant = 0
+                // Quantidade total de vendas
+                let venda = 0
 
                 // Quantidade de cortesias
                 let cortesias_quant = 0
 
-                /*
-                    Calcula o valor total das vendas,
-                    a quantidade vendida e a quantidade de cortesias
-                */
-                let pdv_valor = classe.tbl_ingressos.reduce((prev, next) => {
+                // Valor total das vendas
+                let valor = classe.tbl_ingressos.reduce((prev, next) => {
                     let valor = parseFloat(next.ing_valor)
 
-                    if(valor != 0) pdv_quant++
+                    if(valor != 0) venda++
                     else cortesias_quant++
 
                     return prev + valor
                 }, 0)
-                // PDVs - fim
-
-
-                // Site - início
-                // Quantidade vendida
-                let site_quant = 0
-
-                /*
-                    Calcula o valor total das vendas e
-                    a quantidade vendida
-                */
-                let site_valor = classe.lltckt_products.reduce((prev, next) => (
-                    prev + next.lltckt_order_products.reduce((prev, next) => {
-                        site_quant += next.quantity
-                        return prev + parseFloat(next.total)
-                    }, 0)
-                ), 0)
-                // Site - fim
-
-                // Nome da Classe/Categoria
-                let nome = classe.tbl_categorias_classes_ingresso?.cat_nome ?? classe.cla_nome
-                
-                // Quantidade total de vendas: pdv + site
-                let venda = pdv_quant + site_quant
 
                 // Quantidade total de ingressos: venda + cortesias
                 let total = venda + cortesias_quant
 
-                // Valor total das vendas: pdv + site
-                let valor = pdv_valor + site_valor
+                // Nome da Classe/Categoria
+                let nome = classe.tbl_categorias_classes_ingresso?.cat_nome ?? classe.cla_nome
 
                 data.push({
                     tipo: nome,
