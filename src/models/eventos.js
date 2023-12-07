@@ -864,7 +864,11 @@ export default class Eventos {
         // Obtêm as vendas do evento
         return await tbl_ingressos.findAll({
             where: {
-                ing_evento: evento
+                ing_evento: evento,
+                $or: [
+                    { ing_pdv: { $not: null }},
+                    where(col('lltckt_order_product_barcode.barcode'), Op.not, null)
+                ]
             },
 
             attributes: [
@@ -901,7 +905,10 @@ export default class Eventos {
                         include: {
                             model: lltckt_order,
                             required: true,
-                            attributes: ['order_status_id']
+                            attributes: [
+                                'order_status_id',
+                                'payment_method'
+                            ]
                         }
                     }
                 }
@@ -916,7 +923,7 @@ export default class Eventos {
 
             result.map(ing => {
                 // Auxiliar do status do ingresso no site
-                let order_status = ing?.lltckt_order_product_barcode?.lltckt_order_product[0]?.lltckt_order?.order_status_id
+                let order_status = ing?.lltckt_order_product_barcode?.lltckt_order_product?.lltckt_order?.order_status_id
 
                 // Ingresso vendido, não cancelado
                 let vendido = !![1,2].find(a => a == ing.ing_status) && (!order_status || order_status === 5)
@@ -947,6 +954,13 @@ export default class Eventos {
                     classe_nome += ' Meia-Entrada'
                 }
 
+                // Método de pagamento
+                let payment_method = ing?.lltckt_order_product_barcode
+                    ?.lltckt_order_product
+                    ?.lltckt_order
+                    ?.payment_method
+                let mpgto = payment_method ?? ing.ing_mpgto
+
                 // Procura pelo PDV registrado
                 let pdv_index = pdvs.findIndex(a => a.pdv === pdv_nome)
 
@@ -960,24 +974,29 @@ export default class Eventos {
                         pdvs[pdv_index].valor_total += valor
                         pdvs[pdv_index].cortesias += Number(cortesia)
 
-                        switch(ing.ing_mpgto) {
+                        switch(mpgto) {
                             // Dinheiro
                             case 1:
+                            case 'Dinheiro':
                                 pdvs[pdv_index].meios_pgto.dinheiro += valor
                                 break
 
                             // Crédito
                             case 2:
+                            case 'PagSeguro':
+                            case 'Crédito':
                                 pdvs[pdv_index].meios_pgto.credito += valor
                                 break
 
                             // Débito
                             case 3:
+                            case 'Débito':
                                 pdvs[pdv_index].meios_pgto.debito += valor
                                 break
 
                             // PIX
                             case 4:
+                            case 'PIX':
                                 pdvs[pdv_index].meios_pgto.pix += valor
                                 break
                             
@@ -1042,24 +1061,29 @@ export default class Eventos {
                             pix: 0
                         }
 
-                        switch(ing.ing_mpgto) {
+                        switch(mpgto) {
                             // Dinheiro
                             case 1:
+                            case 'Dinheiro':
                                 meios_pgto.dinheiro += valor
                                 break
 
                             // Crédito
                             case 2:
+                            case 'PagSeguro':
+                            case 'Crédito':
                                 meios_pgto.credito += valor
                                 break
 
                             // Débito
                             case 3:
+                            case 'Débito':
                                 meios_pgto.debito += valor
                                 break
 
                             // PIX
                             case 4:
+                            case 'PIX':
                                 meios_pgto.pix += valor
                                 break
                             
