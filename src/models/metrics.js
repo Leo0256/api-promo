@@ -384,40 +384,22 @@ export default class Metrics {
      */
     static async getRankingPdvs(evento) {
         // Obtêm os ingressos vendidos do evento
-        return await this.getIngressos(evento, false)
-        .then(data => {
-            // Filtra pelos ingressos vendidos
-            const ingressos = data.filter(b => (
-                !!b.ing_pdv || !!b.lltckt_order_product_barcode
-            ))
-
-            // Lista dos PDVs
+        return await this.getIngressos(evento, true)
+        .then(ingressos => {
             let pdvs = []
 
             ingressos.map(ing => {
                 // Nome do PDV
-                let pdv = null
-                if(!ing.ing_pdv) {
-                    pdv = 'Quero Ingresso - Internet'
-                }
-                else {
-                    pdv = ing.tbl_pdv.pdv_nome
-                }
-
+                let pdv = !!ing.ing_pdv
+                    ? ing.tbl_pdv.pdv_nome
+                    : 'Quero Ingresso - Internet'
+                
                 // Valor do ingresso
                 let valor = parseFloat(ing.ing_valor)
 
                 // Dia atual
                 let date_today = new Date()
                 date_today.setUTCHours(0,0,0,0)
-
-                // Auxiliar do ingresso no site
-                let site_aux = ing.lltckt_order_product_barcode?.lltckt_order_product?.lltckt_order
-
-                // Indicador de ingresso vendido
-                let vendido = !!site_aux
-                    ? site_aux.order_status_id === 5 // Vendido no site
-                    : !![1,2].find(a => a == ing.ing_status) // Vendido nos PDVs
 
                 // Ingresso vendido hoje
                 let hoje = date_today <= new Date(ing.ing_data_compra)
@@ -427,48 +409,37 @@ export default class Metrics {
 
                 // Se o PDV estiver na lista, atualiza seus dados
                 if(index >= 0) {
-                    // Se o ingresso foi vendido, contabiliza na lista
-                    if(vendido) {
-                        // Ingresso vendido hoje
-                        if(hoje){
-                            pdvs[index].quant_hoje++
-                            pdvs[index].valor_hoje += valor
-                        }
-
-                        pdvs[index].quant++
-                        pdvs[index].valor += valor
+                    // Ingresso vendido hoje
+                    if(hoje){
+                        pdvs[index].quant_hoje++
+                        pdvs[index].valor_hoje += valor
                     }
+
+                    pdvs[index].quant++
+                    pdvs[index].valor += valor
                 }
 
                 // Se o PDV não estiver na lista, faz o registro
                 else {
-                    let quant_site = 0
-                    let valor_site = 0
-                    let quant_site_hoje = 0
-                    let valor_site_hoje = 0
+                    let quant_hoje = 0
+                    let valor_hoje = 0
 
-                    // Se o ingresso foi vendido, contabiliza na lista
-                    if(vendido) {
-                        // Ingresso vendido hoje
-                        if(hoje) {
-                            quant_site_hoje++
-                            valor_site_hoje += valor
-                        }
-
-                        quant_site++
-                        valor_site += valor
+                    // Ingresso vendido hoje
+                    if(hoje) {
+                        quant_hoje++
+                        valor_hoje += valor
                     }
 
                     pdvs.push({
                         nome: pdv,
-                        quant: quant_site,
-                        valor: valor_site,
-                        quant_hoje: quant_site_hoje,
-                        valor_hoje: valor_site_hoje
+                        quant: 1,
+                        valor,
+                        quant_hoje,
+                        valor_hoje
                     })
                 }
             })
-
+            
             // Totaliza os valores dos PDVs
             let total = pdvs.reduce((prev, next) => {
                 prev.quant += next.quant
