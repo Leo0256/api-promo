@@ -596,12 +596,7 @@ export default class Metrics {
 
         // Obtêm os ingressos vendidos do evento
         return await this.getIngressos(evento, true)
-        .then(data => {
-            // Filtra pelos ingressos vendidos
-            const ingressos = data.filter(b => (
-                !!b.ing_pdv || !!b.lltckt_order_product_barcode
-            ))
-
+        .then(ingressos => {
             // Lista dos períodos
             let periodos = []
 
@@ -674,12 +669,7 @@ export default class Metrics {
     static async getHorarioVenda(evento) {
         // Obtêm os ingressos vendidos do evento
         return await this.getIngressos(evento, true, true)
-        .then(data => {
-            // Filtra pelos ingressos vendidos
-            const ingressos = data.filter(b => (
-                !!b.ing_pdv || !!b.lltckt_order_product_barcode
-            ))
-
+        .then(ingressos => {
             // Lista dos horários
             let horarios = []
 
