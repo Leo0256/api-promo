@@ -268,10 +268,9 @@ export default class Eventos {
      * 
      * @param {number} user_id Id do Promotor
      * @param {number} evento Id do evento
-     * @param {number} categoria Id do evento no site
      * @returns 
      */
-    static async getInfo(user_id, evento, categoria) {
+    static async getInfo(user_id, evento) {
         // Obtêm os dados das vendas do evento
         const promises = [
             // Situação do evento
@@ -321,152 +320,136 @@ export default class Eventos {
 
             // Faturamentos
             new Promise(async (resolve, _) => {
-                const faturamentos = [
-                    new Promise(async (resolve, _) => {
-                        // Faturamentos do site - início
-                        let site = {
-                            dinheiro: 0,
-                            credito: 0,
-                            debito: 0,
-                            pix: 0,
-                            total: 0
-                        }
+                let pdv = {
+                    dinheiro: 0,
+                    credito: 0,
+                    debito: 0,
+                    pix: 0,
+                    total: 0
+                }
 
-                        // Calcula os faturamento do site
-                        await lltckt_order.findAll({
-                            where: {
-                                category_id: categoria,
-                                order_status_id: 5
-                            },
-                            attributes: [ 'payment_method' ],
+                let site = {
+                    dinheiro: 0,
+                    credito: 0,
+                    debito: 0,
+                    pix: 0,
+                    total: 0
+                }
+
+                // Obtêm os ingressos vendidos, para calcular o faturamento
+                await tbl_ingressos.findAll({
+                    where: {
+                        ing_evento: evento,
+
+                        // Filtro de ingressos não cancelados
+                        ing_status: [1, 2],
+                        $or: [
+                            { ing_pdv: { $not: null }},
+                            where(col('lltckt_order_product_barcode.barcode'), Op.not, null)
+                        ]
+                    },
+
+                    attributes: [
+                        'ing_pos',
+                        'ing_valor',
+                        'ing_mpgto'
+                    ],
+
+                    // Ingresso no site
+                    include: {
+                        model: lltckt_order_product_barcode,
+                        required: false,
+                        attributes: ['barcode'],
+                        include: {
+                            model: lltckt_order_product,
+                            required: true,
+                            attributes: ['order_product_id'],
                             include: {
-                                model: lltckt_order_product,
-                                attributes: [ 'total' ],
+                                model: lltckt_order,
                                 required: true,
-                                /*
-                                    Algumas rows estão quebradas, sendo necessário um filtro forçado
-                                    entre as 'orders' com ligação com algum registro de ingressos
-                                    no schema 'ticketsl_promo'
-                                */
-                                include: {
-                                    model: lltckt_order_product_barcode,
-                                    required: true
-                                }
+                                attributes: ['payment_method'],
+
+                                // Filtro de ingressos não cancelados
+                                where: { order_status_id: 5 }
                             }
-                        })
-                        .then(orders => {
-                            orders.map(({ dataValues: order }) => {
-                                let valor = order.lltckt_order_products.reduce((a, b) => a += parseFloat(b.total), 0)
+                        }
+                    }
+                })
+                .then(ingressos => {
+                    ingressos.map(({ dataValues: ing }) => {
+                        let valor = parseFloat(ing.ing_valor)
+                        let mpgto
 
-                                switch (order.payment_method) {
-                                    // Crédito/Débito?
-                                    case 'PagSeguro':
-                                        site.credito += valor
-                                        break;
-                                    
-                                    // PIX
-                                    case 'PIX':
-                                        site.pix += valor
-                                        break;
+                        let payment_method = ing?.lltckt_order_product_barcode
+                            ?.lltckt_order_product
+                            ?.lltckt_order
+                            ?.payment_method
 
-                                    default:
-                                        break;
-                                }
-                            })
-                        })
+                        switch(payment_method ?? ing.ing_mpgto) {
+                            // Dinheiro
+                            case 1:
+                            case 'Dinheiro':
+                                mpgto = 'dinheiro'
+                                break
 
-                        // Calcula o faturamento total no site
-                        site.total = Object.entries(site)
-                        .map(([_, value]) => value)
-                        .reduce((prev, next) => (
-                            prev + next
-                        ), 0)
-
-                        // Formata os faturamentos do site
-                        Object.entries(site).map(([key]) => {
-                            site[key] = Shared.moneyFormat(site[key])
-                        })
-
-                        // Faturamentos do site - fim
-
-                        resolve(site)
-                    }),
-
-                    new Promise(async (resolve, _) => {
-                        // Faturamento dos PDVs - início
-                        let pdv = {
-                            dinheiro: 0,
-                            credito: 0,
-                            debito: 0,
-                            pix: 0,
-                            total: 0
+                            // Crédito
+                            case 2:
+                            case 'PagSeguro':
+                            case 'Crédito':
+                                mpgto = 'credito'
+                                break
+                            
+                            // Débito
+                            case 3:
+                            case 'Débito':
+                                mpgto = 'debito'
+                                break
+                            
+                            // PIX
+                            case 4:
+                            case 'PIX':
+                                mpgto = 'pix'
+                                break
+                            
+                            default: break
                         }
 
-                        // Calcula os faturamento dos PDVs
-                        await tbl_ingressos.findAll({
-                            where: {
-                                ing_evento: evento,
-                                ing_pdv: { $not: null },
-                                ing_status: { $in: [ 1, 2 ] }
-                            },
-                            attributes: [
-                                'ing_valor',
-                                'ing_mpgto'
-                            ]
-                        })
-                        .then(ingressos => {
-                            ingressos.map(({ dataValues: ingresso }) => {
-                                let valor = parseFloat(ingresso.ing_valor)
-                                switch(ingresso.ing_mpgto) {
-                                    // Dinheiro
-                                    case 1:
-                                        pdv.dinheiro += valor
-                                        break;
-
-                                    // Crédito
-                                    case 2:
-                                        pdv.credito += valor
-                                        break;
-                                    
-                                    // Débito
-                                    case 3:
-                                        pdv.debito += valor
-                                        break;
-                                    
-                                    // PIX
-                                    case 4:
-                                        pdv.pix += valor
-                                        break;
-                                    
-                                    default: break;
-                                }
-                            })
-                        })
-
-                        // Calcula o faturamento total nos PDVs
-                        pdv.total = Object.entries(pdv)
-                        .map(([_, value]) => value)
-                        .reduce((prev, next) => (
-                            prev + next
-                        ), 0)
-
-                        Object.entries(pdv).map(([key]) => {
-                            pdv[key] = Shared.moneyFormat(pdv[key])
-                        })
-
-                        // Faturamento dos PDVs - fim
-                        resolve(pdv)  
-                    })
-                ]
-
-                await Promise.all(faturamentos).then(result => {
-                    resolve({
-                        faturamentos: {
-                            site: result[0],
-                            pdv: result[1]
+                        // PDV
+                        if(!!ing.ing_pos) {
+                            pdv[mpgto] += valor
+                        }
+                        // Site
+                        else {
+                            site[mpgto] += valor
                         }
                     })
                 })
+
+                // Calcula o faturamento total nos PDVs
+                pdv.total = Object.entries(pdv)
+                .map(([_, value]) => value)
+                .reduce((prev, next) => (
+                    prev + next
+                ), 0)
+
+                // Calcula o faturamento total no site
+                site.total = Object.entries(site)
+                .map(([_, value]) => value)
+                .reduce((prev, next) => (
+                    prev + next
+                ), 0)
+
+                // Formata os faturamentos
+                Object.entries(pdv).map(([key]) => {
+                    pdv[key] = Shared.moneyFormat(pdv[key])
+                })
+
+                Object.entries(site).map(([key]) => {
+                    site[key] = Shared.moneyFormat(site[key])
+                })
+
+                // Retorna os faturamentos
+                resolve({ faturamentos: { site, pdv } })
             }),
 
             this.getEventos(user_id, evento, null, 1)

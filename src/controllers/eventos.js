@@ -35,9 +35,9 @@ export default class EventosController {
      */
     static async getInfo(req, res) {
         let { user_id } = req.body['token_data']
-        let { evento, categoria } = req.query
+        let { evento } = req.query
 
-        await Eventos.getInfo(user_id, evento, categoria)
+        await Eventos.getInfo(user_id, evento)
         .then(result => res.json(result))
         .catch(e => {
             console.error(e)
