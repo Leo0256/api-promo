@@ -304,7 +304,7 @@ export default class RelatoriosAnaliticos {
                         pos: ing.ing_pos,
                         pedido: order?.order_id ?? '-',
                         cod_barras: ing.ing_cod_barras,
-                        situacao: this.set_status(ing.ing_status),
+                        situacao: order?.lltckt_order_status.name ?? '-',
                         ing: classe,
                         ing_num: ing.tbl_classe_numeracao?.cln_num ?? '-',
                         valor: Shared.moneyFormat(valor),
