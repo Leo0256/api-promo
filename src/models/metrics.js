@@ -492,36 +492,31 @@ export default class Metrics {
     static async getFaturamento(evento) {
         // Obtêm os ingressos vendidos do evento
         return await this.getIngressos(evento, true)
-        .then(data => {
-            // Filtra pelos ingressos vendidos
-            const ingressos = data.filter(b => (
-                !!b.ing_pdv || !!b.lltckt_order_product_barcode
-            ))
-
+        .then(ingressos => {
             let faturamentos = [
                 {
-                    aux: [1], // Auxiliar de pesquisa
+                    aux: ['Dinheiro', 1], // Auxiliar de pesquisa
                     nome: 'Dinheiro',
                     quant: 0,
                     valor: 0,
                     perc: 0
                 },
                 {
-                    aux: ['PagSeguro',2], // Auxiliar de pesquisa
+                    aux: ['PagSeguro', 'Crédito', 2], // Auxiliar de pesquisa
                     nome: 'Crédito',
                     quant: 0,
                     valor: 0,
                     perc: 0
                 },
                 {
-                    aux: [3], // Auxiliar de pesquisa
+                    aux: ['Débito', 3], // Auxiliar de pesquisa
                     nome: 'Débito',
                     quant: 0,
                     valor: 0,
                     perc: 0
                 },
                 {
-                    aux: ['PIX'], // Auxiliar de pesquisa
+                    aux: ['PIX', 4], // Auxiliar de pesquisa
                     nome: 'PIX',
                     quant: 0,
                     valor: 0,
