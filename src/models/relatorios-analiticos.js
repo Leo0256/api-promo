@@ -181,16 +181,16 @@ export default class RelatoriosAnaliticos {
         const rename_mpgto = (nome, valor) => {
             // Ingressos sem valor são considerados como cortesias
             if(valor == 0)
-                return 'CORTESIA'
+                return 'Cortesia'
 
             // Alinha as formas de pagamento do site com as dos PDVs
             switch (nome) {
                 case 'CREDITO':
                 case 'PagSeguro':
-                    return 'CARTÃO DE CRÉDITO'
+                    return 'Crédito'
                 
                 case 'DEBITO':
-                    return 'DÉBITO'
+                    return 'Débito'
             
                 default:
                     return nome
@@ -289,8 +289,12 @@ export default class RelatoriosAnaliticos {
                     classe += ' Meia-Entrada'
                 }
 
+                // Auxiliar do ingresso no site
+                let order = ing.lltckt_order_product_barcode?.lltckt_order_product?.lltckt_order
+
                 // Auxiliar do código de transação
                 let cod_pagseguro = ing?.tbl_venda_ingresso?.vend_pagseguro_cod?.trim()
+                    ?? order?.pagseguro_code
 
                 // Ingresso vendido nos PDVs
                 if(ing.ing_pos) {
@@ -298,7 +302,7 @@ export default class RelatoriosAnaliticos {
                         data_compra: ing.ing_data_compra,
                         pdv: ing.tbl_pdv.pdv_nome,
                         pos: ing.ing_pos,
-                        pedido: '-',
+                        pedido: order?.order_id ?? '-',
                         cod_barras: ing.ing_cod_barras,
                         situacao: this.set_status(ing.ing_status),
                         ing: classe,
@@ -311,13 +315,6 @@ export default class RelatoriosAnaliticos {
 
                 // Ingresso vendido no site
                 else {
-                    // Auxiliar do ingresso no site
-                    let order = ing.lltckt_order_product_barcode?.lltckt_order_product?.lltckt_order
-
-                    // Auxiliar do código de transação
-                    let cod_pagseguro = ing?.tbl_venda_ingresso?.vend_pagseguro_cod?.trim()
-                        ?? order?.pagseguro_code
-
                     return {
                         data_compra: ing.ing_data_compra,
                         pdv: 'Quero Ingresso - Internet',
