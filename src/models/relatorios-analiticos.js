@@ -1,3 +1,4 @@
+import axios from 'axios'
 import schemas from '../schemas/index.js'
 import Shared from './shared.js'
 
@@ -23,6 +24,202 @@ const {
  * Regras de negócio dos Relatórios Analíticos dos Eventos
  */
 export default class RelatoriosAnaliticos {
+
+    /**
+     * Verifica e atualiza os ingressos que foram cancelados
+     * pela PagSeguro.
+     * 
+     * @param {{
+     *      data: Date?,
+     *      data_compra: Date?,
+     *      situacao: string?,
+     *      status: string?,
+     *      pedido: number|'-'|null,
+     *      cod_pagseguro: string?
+     * }[]} ingressos 
+     * @returns 
+     */
+    static async verificarCancelados(ingressos) {
+        // URL da API da PagSeguro
+        let pagseguro_api_url = 'https://ws.sandbox.pagseguro.uol.com.br/v2/transactions'
+
+        // Data mínima de busca dos ingressos
+        let data_minima = new Date()
+
+        // Data mínima: até 4 meses atrás
+        data_minima.setUTCMonth(data_minima.getUTCMonth() -4)
+
+        // Filtra os ingressos
+        let filtro_ings = ingressos.filter(a => {
+            // Ingresso aprovado
+            let aprovado = !!['-', 'aprovado'].find(b => (
+                b == (a?.situacao ?? a?.status).toLowerCase()
+            ))
+
+            // Com o código de transferência
+            let com_codigo = !!a?.cod_pagseguro ? a?.cod_pagseguro != '-' : true
+
+            // Depois da data mínima
+            let depois_data_minima = (a?.data_compra ?? a?.data) >= data_minima
+
+            return aprovado && com_codigo && depois_data_minima
+        })
+
+        /**
+         * Retorna o código da transação.
+         * 
+         * @param {{
+         *      pedido: number|'-'|null,
+         *      cod_pagseguro: string?
+         * }} ing 
+         * @returns {Promise<string?>}
+         */
+        let getPagSeguroCode = async ing => {
+            if(!ing?.cod_pagseguro && !isNaN(parseInt(ing?.pedido))) {
+                return await lltckt_order.findByPk(ing?.pedido, {
+                    where: {
+                        pagseguro_code: { $not: [
+                            null,
+                            "",
+                            "código_de_teste",
+                            "FAIL"
+                        ]}
+                    },
+                    attributes: ['pagseguro_code']
+                })
+                .then(a => a.pagseguro_code)
+            }
+
+            return ing?.cod_pagseguro
+        }
+
+        if(filtro_ings.length) {
+            // Obtêm os ingressos cancelados
+            let promises_codes = filtro_ings.map(async ing => {
+                return await getPagSeguroCode(ing)
+                .then(async pagseguro_code => {
+                    if(pagseguro_code) {
+                        return await axios.get(
+                            `${pagseguro_api_url}/${pagseguro_code}`,
+                            { params: {
+                                email: process.env.PAGSEGURO_EMAIL,
+                                token: process.env.PAGSEGURO_TOKEN
+                            }}
+                        )
+                        .then(resp => {
+                            if(resp.status == 200) {
+                                let xml = resp.data
+                                let index_start = xml.indexOf('<status>')
+                                let index_end = xml.indexOf('</status>')
+
+                                if(index_start >= 0 && index_end >= 0) {
+                                    let status = xml.substring(index_start, index_end)
+
+                                    if(status[status.length -1] == 6) {
+                                        return ing.pedido
+                                    }
+                                }
+                            }
+                        }, () => null)
+                    }
+                })
+            })
+
+            // Lista os pedidos cancelados
+            let pedidos = await Promise.all(promises_codes).then(result => {
+                let filter = result.filter(a => typeof a === 'number')
+
+                let list = []
+                filter.map(venda_id => {
+                    if(!list.find(a => a == venda_id)) {
+                        list.push(venda_id)
+                    }
+                })
+
+                return list
+            })
+            
+            if(pedidos.length) {
+                // Atualiza os ingressos estornados
+                ingressos.map(ingresso => {
+                    if(pedidos.find(a => a == ingresso.pedido)) {
+                        ingresso.situacao = "Estornado"
+                        ingresso.status = "Estornado"
+                    }
+                })
+
+                // Organiza os dados dos ingressos estornados
+                let ings = await tbl_ingressos.findAll({
+                    where: { vend_id: pedidos },
+                    attributes: [
+                        ['ing_classe_ingresso', 'classe'],
+                        ['ing_item_classe_ingresso', 'lote'],
+                        ['ing_solidario', 'solidario'],
+                        ['cln_cod', 'numerado']
+                    ]
+                })
+                .then(data => {
+                    let list = []
+                    data.map(ing => {
+                        let index = list.findIndex(a => a?.lote == ing.lote)
+
+                        if(index >= 0) {
+                            list[index].quant++
+
+                            if(ing?.numerado)
+                                list[index].numerados.push(ing.numerado)
+                        }
+                        else {
+                            list.push({
+                                classe: ing?.classe,
+                                lote: ing?.lote,
+                                solidario: ing?.solidario,
+                                numerados: [ing?.numerado],
+                                quant: 1
+                            })
+                        }
+                    })
+
+                    return list
+                })
+
+                // Atualiza os estoques
+                let promises_ings = ings.map(async ing => {
+                    // Pista
+                    if(!ing.numerados?.length) {
+                        await Shared.updateEstoque(
+                            ing.quant,
+                            ing.lote,
+                            ing.classe
+                        )
+                    }
+
+                    // Numerado
+                    else {
+                        await Shared.setNumeradoStatus(
+                            ing.classe,
+                            ing.numerados,
+                            ing.lote,
+                            true
+                        )
+                    }
+
+                    // Solidário
+                    if(!!ing.solidario) {
+                        await Shared.solidarioIncrement(
+                            ing.quant,
+                            ing.classe,
+                            ing.solidario
+                        )
+                    }
+                })
+
+                await Promise.all(promises_ings)
+            }
+        }
+
+        return ingressos
+    }
 
     /**
      * Define o status da venda.
@@ -156,7 +353,7 @@ export default class RelatoriosAnaliticos {
             pagina: page,
             total,
             count,
-            data: ingressos
+            data: await this.verificarCancelados(ingressos)
         }
     }
 
@@ -553,11 +750,8 @@ export default class RelatoriosAnaliticos {
                 }
             ]
         })
-        .then(({ count, rows }) => ({
-            total: with_pages ? Math.ceil(count / l) : undefined,
-            pagina: with_pages ? p : undefined,
-            count,
-            ingressos: rows.map(order => {
+        .then(async ({ count, rows }) => {
+            let ingressos = rows.map(order => {
                 // Nome + RG do comprador
                 let comprador = `${order.payment_firstname} ${order.payment_lastname}`
                     + `\nRG: ${order.lltckt_customer.rg}`
@@ -597,7 +791,14 @@ export default class RelatoriosAnaliticos {
                     valor: Shared.moneyFormat(order.total)
                 }
             })
-        }))
+
+            return {
+                total: with_pages ? Math.ceil(count / l) : undefined,
+                pagina: with_pages ? p : undefined,
+                count,
+                ingressos: await this.verificarCancelados(ingressos)
+            }
+        })
     }
 
     /**
