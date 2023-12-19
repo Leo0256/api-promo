@@ -40,9 +40,6 @@ export default class RelatoriosAnaliticos {
      * @returns 
      */
     static async verificarCancelados(ingressos) {
-        // URL da API da PagSeguro
-        let pagseguro_api_url = 'https://ws.sandbox.pagseguro.uol.com.br/v2/transactions'
-
         // Data mínima de busca dos ingressos
         let data_minima = new Date()
 
@@ -100,7 +97,7 @@ export default class RelatoriosAnaliticos {
                 .then(async pagseguro_code => {
                     if(pagseguro_code) {
                         return await axios.get(
-                            `${pagseguro_api_url}/${pagseguro_code}`,
+                            `${process.env.PAGSEGURO_API_URL}/${pagseguro_code}`,
                             { params: {
                                 email: process.env.PAGSEGURO_EMAIL,
                                 token: process.env.PAGSEGURO_TOKEN
