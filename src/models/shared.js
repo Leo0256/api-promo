@@ -5,6 +5,7 @@ const {
     tbl_classes_ingressos,
     tbl_itens_classes_ingressos,
     tbl_classe_ingressos_solidario,
+    tbl_classe_numeracao,
 } = schemas.ticketsl_promo
 
 const {

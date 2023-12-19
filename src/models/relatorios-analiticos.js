@@ -147,7 +147,7 @@ export default class RelatoriosAnaliticos {
 
                 // Organiza os dados dos ingressos estornados
                 let ings = await tbl_ingressos.findAll({
-                    where: { vend_id: pedidos },
+                    where: { ing_venda: pedidos },
                     attributes: [
                         ['ing_classe_ingresso', 'classe'],
                         ['ing_item_classe_ingresso', 'lote'],
@@ -157,7 +157,7 @@ export default class RelatoriosAnaliticos {
                 })
                 .then(data => {
                     let list = []
-                    data.map(ing => {
+                    data.map(({ dataValues: ing }) => {
                         let index = list.findIndex(a => a?.lote == ing.lote)
 
                         if(index >= 0) {
@@ -180,6 +180,21 @@ export default class RelatoriosAnaliticos {
                     return list
                 })
 
+                // Atualização do status do ingresso
+                await tbl_ingressos.update(
+                    { ing_status: 3 },
+                    { where: {
+                        ing_venda: pedidos
+                    }}
+                )
+
+                await lltckt_order.update(
+                    { order_status_id: 6 },
+                    { where: {
+                        order_id: pedidos
+                    }}
+                )
+
                 // Atualiza os estoques
                 let promises_ings = ings.map(async ing => {
                     // Pista
@@ -192,7 +207,7 @@ export default class RelatoriosAnaliticos {
                     }
 
                     // Numerado
-                    else {
+                    else if(ing.numerados[0] !== null) {
                         await Shared.setNumeradoStatus(
                             ing.classe,
                             ing.numerados,
