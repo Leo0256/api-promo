@@ -1632,10 +1632,10 @@ export default class Eventos {
             ]
         })
         .then(({ rows, count }) => ({
-            total: with_pages ? Math.ceil(count / l) : undefined,
             pagina: with_pages ? p : undefined,
+            total: with_pages ? Math.ceil(count / l) : undefined,
             count,
-            ingressos: rows.map(ing => {
+            data: rows.map(ing => {
                 // Auxiliar do valor do ingresso
                 let valor = parseFloat(ing.ing_valor)
 
