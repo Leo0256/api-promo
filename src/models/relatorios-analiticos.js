@@ -63,18 +63,19 @@ export default class RelatoriosAnaliticos {
         })
 
         /**
-         * Retorna o código da transação.
+         * Retorna os códigos de transação.
          * 
          * @param {{
-         *      pedido: number|'-'|null,
+         *      pedido: number,
          *      cod_pagseguro: string?
-         * }} ing 
-         * @returns {Promise<string?>}
+         * }[]} ings 
+         * @returns 
          */
-        let getPagSeguroCode = async ing => {
-            if(!ing?.cod_pagseguro && !isNaN(parseInt(ing?.pedido))) {
-                return await lltckt_order.findByPk(ing?.pedido, {
+        let getPagSeguroCode = async ings => {
+            if(!ings[0]?.cod_pagseguro) {
+                return await lltckt_order.findAll({
                     where: {
+                        order_id: ings.map(a => a.pedido),
                         pagseguro_code: { $not: [
                             null,
                             "",
@@ -82,44 +83,45 @@ export default class RelatoriosAnaliticos {
                             "FAIL"
                         ]}
                     },
-                    attributes: ['pagseguro_code']
+                    attributes: [
+                        'order_id',
+                        'pagseguro_code'
+                    ]
                 })
-                .then(a => a.pagseguro_code)
+                .then(res => res.map(a => a.toJSON()))
             }
 
-            return ing?.cod_pagseguro
+            return ings
         }
 
         if(filtro_ings.length) {
-            // Obtêm os ingressos cancelados
-            let promises_codes = filtro_ings.map(async ing => {
-                return await getPagSeguroCode(ing)
-                .then(async pagseguro_code => {
-                    if(pagseguro_code) {
-                        return await axios.get(
-                            `${process.env.PAGSEGURO_API_URL}/${pagseguro_code}`,
-                            { params: {
-                                email: process.env.PAGSEGURO_EMAIL,
-                                token: process.env.PAGSEGURO_TOKEN
-                            }}
-                        )
-                        .then(resp => {
-                            if(resp.status == 200) {
-                                let xml = resp.data
-                                let index_start = xml.indexOf('<status>')
-                                let index_end = xml.indexOf('</status>')
+            // Obtêm os códigos de transação dos pedidos
+            let codes = await getPagSeguroCode(filtro_ings)
 
-                                if(index_start >= 0 && index_end >= 0) {
-                                    let status = xml.substring(index_start, index_end)
+            // Verifica os pedidos cancelados
+            let promises_codes = codes.map(async code => {
+                return await axios.get(
+                    `${process.env.PAGSEGURO_API_URL}/${code?.cod_pagseguro ?? code?.pagseguro_code}`,
+                    { params: {
+                        email: process.env.PAGSEGURO_EMAIL,
+                        token: process.env.PAGSEGURO_TOKEN
+                    }}
+                )
+                .then(resp => {
+                    if(resp.status == 200) {
+                        let xml = resp.data
+                        let index_start = xml.indexOf('<status>')
+                        let index_end = xml.indexOf('</status>')
 
-                                    if(status[status.length -1] == 6) {
-                                        return ing.pedido
-                                    }
-                                }
+                        if(index_start >= 0 && index_end >= 0) {
+                            let status = xml.substring(index_start, index_end)
+
+                            if(status[status.length -1] == 6) {
+                                return code?.pedido ?? code?.order_id
                             }
-                        }, () => null)
+                        }
                     }
-                })
+                }, () => null)
             })
 
             // Lista os pedidos cancelados
