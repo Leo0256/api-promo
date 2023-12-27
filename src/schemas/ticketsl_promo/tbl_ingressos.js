@@ -153,7 +153,7 @@ const tbl_ingressos = db_conn.define(
         },
 
         ing_venda: {
-            type: DataTypes.INTEGER(11)
+            type: DataTypes.STRING(32)
         }
     },
     { schema: process.env.DB_PROMO }

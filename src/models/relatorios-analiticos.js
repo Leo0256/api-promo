@@ -430,7 +430,8 @@ export default class RelatoriosAnaliticos {
                 'ing_valor',
                 'ing_mpgto',
                 'ing_meia',
-                'ing_solidario'
+                'ing_solidario',
+                'ing_venda'
             ],
             order: [['ing_data_compra', 'DESC']],
             include: [
@@ -509,13 +510,29 @@ export default class RelatoriosAnaliticos {
 
                 // Ingresso vendido nos PDVs
                 if(ing.ing_pos) {
+                    let situacao
+                    switch(ing.ing_status) {
+                        case 1:
+                        case 2:
+                            situacao = 'Aprovado'
+                            break
+
+                        case 3:
+                            situacao = 'Estornado'
+                            break
+
+                        default:
+                            situacao = 'Não Confirmado'
+                            break
+                    }
+
                     return {
                         data_compra: ing.ing_data_compra,
                         pdv: ing.tbl_pdv.pdv_nome,
                         pos: ing.ing_pos,
-                        pedido: order?.order_id ?? '-',
+                        pedido: ing.ing_venda,
                         cod_barras: ing.ing_cod_barras,
-                        situacao: order?.lltckt_order_status.name ?? '-',
+                        situacao,
                         ing: classe,
                         ing_num: ing.tbl_classe_numeracao?.cln_num ?? '-',
                         valor: Shared.moneyFormat(valor),

@@ -13,8 +13,7 @@ const tbl_venda_ingressos = db_conn.define(
     'tbl_venda_ingressos',
     {
         vend_id: {
-            type: DataTypes.INTEGER(11),
-            autoIncrement: true,
+            type: DataTypes.STRING(32),
             primaryKey: true
         },
 
