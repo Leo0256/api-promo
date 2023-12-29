@@ -40,7 +40,7 @@ const tbl_venda_impressao = db_conn.define(
         },
 
         imp_venda: {
-            type: DataTypes.STRING(32)
+            type: DataTypes.INTEGER(11)
         }
     }
 )
