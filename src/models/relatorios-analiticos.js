@@ -265,6 +265,7 @@ export default class RelatoriosAnaliticos {
      * - Filtros debusca;
      * - Paginação.
      * 
+     * @param {boolean} admin 
      * @param {number} evento Id do evento
      * @param {{
      *  pdv: string?,
@@ -279,7 +280,7 @@ export default class RelatoriosAnaliticos {
      * @param {string?} pagina Página da lista
      * @returns 
      */
-    static async getDetalhados(evento, filtros, busca, linhas, pagina) {
+    static async getDetalhados(admin, evento, filtros, busca, linhas, pagina) {
 
         // Obtêm os ingresso
         let {
@@ -287,7 +288,7 @@ export default class RelatoriosAnaliticos {
             pagina: page,
             count,
             ingressos
-        } = await this.getIngressosDetalhados(evento, parseInt(linhas), parseInt(pagina))
+        } = await this.getIngressosDetalhados(admin, evento, parseInt(linhas), parseInt(pagina))
 
         // Busca - início
 
@@ -375,12 +376,13 @@ export default class RelatoriosAnaliticos {
      * Retorna o relatório detalhado
      * dos ingressos emitidos no evento.
      * 
+     * @param {boolean} admin 
      * @param {number} evento Id do evento
      * @param {number?} l Nº de linhas por página
      * @param {number?} p Página da lista
      * @returns 
      */
-    static async getIngressosDetalhados(evento, l, p) {
+    static async getIngressosDetalhados(admin, evento, l, p) {
 
         /**
          * Renomeia a forma de pagamento.
@@ -428,6 +430,7 @@ export default class RelatoriosAnaliticos {
                 'ing_classe_ingresso',
                 'cln_cod',
                 'ing_valor',
+                'ing_taxa',
                 'ing_mpgto',
                 'ing_meia',
                 'ing_solidario',
@@ -536,6 +539,7 @@ export default class RelatoriosAnaliticos {
                         ing: classe,
                         ing_num: ing.tbl_classe_numeracao?.cln_num ?? '-',
                         valor: Shared.moneyFormat(valor),
+                        taxa: admin ? Shared.moneyFormat(ing.ing_taxa) : undefined,
                         pagamento: rename_mpgto(ing.tbl_meio_pgto.mpg_nome, valor),
                         cod_pagseguro: !!cod_pagseguro ? cod_pagseguro : '-'
                     }
@@ -553,6 +557,7 @@ export default class RelatoriosAnaliticos {
                         ing: classe,
                         ing_num: ing.tbl_classe_numeracao?.cln_num ?? '-',
                         valor: Shared.moneyFormat(valor),
+                        taxa: admin ? Shared.moneyFormat(ing.ing_taxa) : undefined,
                         pagamento: rename_mpgto(order?.payment_method ?? '-', valor),
                         cod_pagseguro: !!cod_pagseguro ? cod_pagseguro : '-'
                     }
