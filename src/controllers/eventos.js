@@ -210,6 +210,7 @@ export default class EventosController {
      * @param {Response} res 
      */
     static async getSiteDetalhados(req, res) {
+        let { admin } = req.body['token_data']
         let {
             cat,
             filtros,
@@ -218,7 +219,7 @@ export default class EventosController {
             pagina
         } = req.body
 
-        await RelatoriosAnaliticos.getSiteDetalhados(cat, filtros, busca, linhas, pagina)
+        await RelatoriosAnaliticos.getSiteDetalhados(admin, cat, filtros, busca, linhas, pagina)
         .then(result => res.json(result))
         .catch(e => {
             console.error(e)

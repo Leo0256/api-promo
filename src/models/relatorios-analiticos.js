@@ -651,6 +651,7 @@ export default class RelatoriosAnaliticos {
      * Retorna o relatório detalhado
      * dos ingressos emitidos no site de vendas.
      * 
+     * @param {boolean} admin 
      * @param {number} categoria Id do evento no site
      * @param {{
      *  status: string?,
@@ -661,7 +662,7 @@ export default class RelatoriosAnaliticos {
      * @param {string?} pagina Página da lista
      * @returns 
      */
-    static async getSiteDetalhados(categoria, filtros, busca, linhas, pagina) {
+    static async getSiteDetalhados(admin, categoria, filtros, busca, linhas, pagina) {
         // Auxiliares da paginação
         let l = parseInt(linhas)
         let p = parseInt(pagina)
@@ -737,7 +738,8 @@ export default class RelatoriosAnaliticos {
                         'order_product_id',
                         'name',
                         'quantity',
-                        'price'
+                        'price',
+                        'tax'
                     ],
 
                     where: {
@@ -813,6 +815,8 @@ export default class RelatoriosAnaliticos {
                     ingressos.push(`${product.quantity}x ${classe} ${valor}`)
                 })
 
+                let taxa = order.lltckt_order_products.reduce((a, b) => a += parseFloat(b.tax), 0)
+
                 // Retorna a lista de pedidos no site
                 return {
                     pedido: order.order_id,
@@ -824,7 +828,8 @@ export default class RelatoriosAnaliticos {
                     telefone: order.telephone,
                     quant,
                     ingressos: ingressos.join('#').replace(/#/, '\n'),
-                    valor: Shared.moneyFormat(order.total)
+                    valor: Shared.moneyFormat(order.total),
+                    taxa: admin ? Shared.moneyFormat(taxa) : undefined
                 }
             })
 
