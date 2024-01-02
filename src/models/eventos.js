@@ -443,6 +443,15 @@ export default class Eventos {
                     prev + next
                 ), 0)
 
+                // Totalização das vendas
+                let vendas = {
+                    dinheiro: Shared.moneyFormat(pdv.dinheiro + site.dinheiro),
+                    credito: Shared.moneyFormat(pdv.credito + site.credito),
+                    debito: Shared.moneyFormat(pdv.debito + site.debito),
+                    pix: Shared.moneyFormat(pdv.pix + site.pix),
+                    total: Shared.moneyFormat(pdv.total + site.total)
+                }
+
                 // Formata os faturamentos
                 Object.entries(pdv).map(([key]) => {
                     pdv[key] = Shared.moneyFormat(pdv[key])
@@ -453,10 +462,10 @@ export default class Eventos {
                 })
 
                 // Retorna os faturamentos
-                resolve({ faturamentos: { site, pdv } })
+                resolve({ faturamentos: { site, pdv, vendas } })
             }),
 
-            this.getEventos(user_id, evento, null, 1)
+            this.getEventos(false, user_id, evento, null, 1)
             .then(({ eventos: result }) => {
                 let {
                     // Ingressos Emitidos
