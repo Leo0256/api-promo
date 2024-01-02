@@ -39,6 +39,7 @@ export default class Eventos {
      * Retorna a lista dos Eventos do Promotor
      * na tela home.
      * 
+     * @param {boolean} admin 
      * @param {number} user_id Id do Promotor
      * @param {number?} evento Filtro por evento
      * @param {string?} busca Busca pelo nome do evento
@@ -49,7 +50,7 @@ export default class Eventos {
      * @param {number|string|null} pagina Página dos retornos
      * @returns 
      */
-    static async getEventos(user_id, evento, busca, tipo, pagina) {
+    static async getEventos(admin, user_id, evento, busca, tipo, pagina) {
         // Auxiliar da página
         let p = !!pagina ? parseInt(pagina) : 1
 
@@ -245,7 +246,8 @@ export default class Eventos {
                     }
 
                     // Taxas
-                    taxas_total += taxa
+                    if(admin)
+                        taxas_total += taxa
                 })
 
                 evento.vendido_hoje = vendido_hoje
@@ -254,7 +256,9 @@ export default class Eventos {
                 evento.cortesias_pdv_total = cortesias_pdv_total
                 evento.receitas_hoje = Shared.moneyFormat(receitas_hoje)
                 evento.receitas_total = Shared.moneyFormat(receitas_total)
-                evento.taxas_total = Shared.moneyFormat(taxas_total)
+                
+                if(admin)
+                    evento.taxas_total = Shared.moneyFormat(taxas_total)
 
                 delete evento.tbl_ingressos
 
