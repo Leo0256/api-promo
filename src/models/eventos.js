@@ -1127,11 +1127,29 @@ export default class Eventos {
             // Ordena os PDVs
             pdvs.sort((a, b) => a.pdv.localeCompare(b.pdv))
 
-            // Ordena as classes
-            pdvs.map(pdv => pdv.classes.sort((a, b) => a.classe.localeCompare(b.classe)))
+            // Totalização das vendas
+            let total = {
+                quant_hoje: 0,
+                valor_hoje: 0,
+                quant_total: 0,
+                valor_total: 0,
+                cortesias: 0
+            }
+
+            pdvs.map(pdv => {
+                // Ordena as classes
+                pdv.classes.sort((a, b) => a.classe.localeCompare(b.classe))
+
+                // Totaliza as vendas
+                total.quant_hoje += pdv.quant_hoje
+                total.valor_hoje += pdv.valor_hoje
+                total.quant_total += pdv.quant_total
+                total.valor_total += pdv.valor_total
+                total.cortesias += pdv.cortesias
+            })
 
             // Retorna os PDVs
-            return pdvs
+            return { pdvs, total }
         })
     }
 
