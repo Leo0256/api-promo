@@ -843,8 +843,18 @@ export default class Eventos {
             // Ordena as categorias
             categorias.sort((a, b) => a.categoria.localeCompare(b.categoria))
 
-            // Ordena as classes
-            categorias.map(cat => cat.classes.sort((a, b) => a.classe.localeCompare(b.classe)))
+            categorias.map(cat => {
+                // Ordena as classes
+                cat.classes.sort((a, b) => a.classe.localeCompare(b.classe))
+
+                // Formata os valores
+                cat.valor_total = Shared.moneyFormat(cat.valor_total)
+
+                cat.classes.map(a => {
+                    a.valor_ing = Shared.moneyFormat(a.valor_ing)
+                    a.valor_total = Shared.moneyFormat(a.valor_total)
+                })
+            })
 
             // Retorna as categorias/classes sem categoria
             return categorias
@@ -1158,7 +1168,30 @@ export default class Eventos {
                 total.meios_pgto.credito += pdv.meios_pgto.credito
                 total.meios_pgto.debito += pdv.meios_pgto.debito
                 total.meios_pgto.pix += pdv.meios_pgto.pix
+
+                // Formata os valores
+                pdv.valor_hoje = Shared.moneyFormat(pdv.valor_hoje)
+                pdv.valor_total = Shared.moneyFormat(pdv.valor_total)
+
+                pdv.meios_pgto.dinheiro = Shared.moneyFormat(pdv.meios_pgto.dinheiro)
+                pdv.meios_pgto.credito = Shared.moneyFormat(pdv.meios_pgto.credito)
+                pdv.meios_pgto.debito = Shared.moneyFormat(pdv.meios_pgto.debito)
+                pdv.meios_pgto.pix = Shared.moneyFormat(pdv.meios_pgto.pix)
+
+                pdv.classes.map(a => {
+                    a.valor_hoje = Shared.moneyFormat(a.valor_hoje)
+                    a.valor_total = Shared.moneyFormat(a.valor_total)
+                })
             })
+
+            // Formata os valores da totalização
+            total.valor_hoje = Shared.moneyFormat(total.valor_hoje)
+            total.valor_total = Shared.moneyFormat(total.valor_total)
+
+            total.meios_pgto.dinheiro = Shared.moneyFormat(total.meios_pgto.dinheiro)
+            total.meios_pgto.credito = Shared.moneyFormat(total.meios_pgto.credito)
+            total.meios_pgto.debito = Shared.moneyFormat(total.meios_pgto.debito)
+            total.meios_pgto.pix = Shared.moneyFormat(total.meios_pgto.pix)
 
             // Retorna os PDVs
             return { pdvs, total }
@@ -1345,6 +1378,15 @@ export default class Eventos {
                         }]
                     })
                 }
+            })
+
+            // Formata os valores
+            diarios.map(diario => {
+                diario.valor = Shared.moneyFormat(diario.valor)
+
+                diario.vendas.map(a => {
+                    a.valor = Shared.moneyFormat(a.valor)
+                })
             })
 
             // Retorna o relatório diário
