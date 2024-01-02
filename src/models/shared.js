@@ -30,7 +30,7 @@ export default class Shared {
         const one_day = 24 * 60 * 60 * 1000
 
         // Calcula os dias
-        return Math.ceil((first - end) / one_day)
+        return Math.floor((first - end) / one_day)
     }
 
     /**
