@@ -1,4 +1,4 @@
-import { col, where, Op, fn, literal } from 'sequelize'
+import { col, where, Op, literal } from 'sequelize'
 import schemas from '../schemas/index.js'
 import Shared from './shared.js'
 
@@ -18,6 +18,7 @@ const {
     tbl_usuarios,
     tbl_meio_pgto,
     tbl_venda_ingressos,
+    tbl_eventos_pdvs,
 } = schemas.ticketsl_promo
 
 const {
@@ -1729,29 +1730,36 @@ export default class Eventos {
         return await tbl_pdvs.findAll({
             attributes: [
                 ['pdv_nome', 'nome'],
-                [fn('sum', col('ing_valor')), 'valor_vendas']
             ],
+            where: {
+                $or: [
+                    where(col('tbl_sangria.san_data_hora'), Op.not, null),
+                    where(col('tbl_eventos_pdvs.evp_id'), Op.not, null)
+                ]
+            },
             include: [
                 // Ingressos vendidos no PDV
                 {
                     model: tbl_ingressos,
+                    separate: true,
+                    required: false,
                     where: {
                         ing_evento: evento,
                         ing_status: [1, 2]
                     },
-                    attributes: []
+                    attributes: ['ing_valor']
                 },
 
                 // Sangrias realizadas no PDV
                 {
                     model: tbl_sangria,
-                    separate: true,
+                    required: false,
                     where: {
                         san_evento: evento
                     },
                     attributes: [
                         ['san_data_hora', 'data'],
-                        [col('tbl_usuario.usu_nome'), 'usuario'],
+                        [literal('`tbl_sangria->tbl_usuario`.`usu_nome`'), 'usuario'],
                         ['san_valor', 'valor'],
                     ],
                     order: [['san_data_hora', 'desc']],
@@ -1759,6 +1767,14 @@ export default class Eventos {
                         model: tbl_usuarios,
                         attributes: []
                     }
+                },
+
+                // Filtro dos PDVs onde o evento é vendido
+                {
+                    model: tbl_eventos_pdvs,
+                    required: false,
+                    attributes: ['evp_id'],
+                    where: { evp_evento: evento }
                 }
             ]
         })
@@ -1767,6 +1783,9 @@ export default class Eventos {
             let pdvs = JSON.parse(JSON.stringify(result))
 
             pdvs.map(pdv => {
+                // Calcula o total faturado
+                pdv.valor_vendas = pdv.tbl_ingressos.reduce((a, b) => a += parseFloat(b.ing_valor), 0)
+
                 // Calcula o total sangrado
                 pdv.valor_sangrias = parseFloat(
                     pdv.tbl_sangria.reduce((a, b) => a += b.valor, 0)
@@ -1790,6 +1809,8 @@ export default class Eventos {
                 // Renomeia a lista de sangrias
                 pdv.sangrias = pdv.tbl_sangria
                 
+                delete pdv.tbl_eventos_pdvs
+                delete pdv.tbl_ingressos
                 delete pdv.tbl_sangria
                 delete pdv.pdv_id
             })
