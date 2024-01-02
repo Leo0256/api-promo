@@ -1134,7 +1134,13 @@ export default class Eventos {
                 valor_hoje: 0,
                 quant_total: 0,
                 valor_total: 0,
-                cortesias: 0
+                cortesias: 0,
+                meios_pgto: {
+                    dinheiro: 0,
+                    credito: 0,
+                    debito: 0,
+                    pix: 0
+                }
             }
 
             pdvs.map(pdv => {
@@ -1147,6 +1153,11 @@ export default class Eventos {
                 total.quant_total += pdv.quant_total
                 total.valor_total += pdv.valor_total
                 total.cortesias += pdv.cortesias
+
+                total.meios_pgto.dinheiro += pdv.meios_pgto.dinheiro
+                total.meios_pgto.credito += pdv.meios_pgto.credito
+                total.meios_pgto.debito += pdv.meios_pgto.debito
+                total.meios_pgto.pix += pdv.meios_pgto.pix
             })
 
             // Retorna os PDVs
