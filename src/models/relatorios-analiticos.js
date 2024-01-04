@@ -1,6 +1,7 @@
 import axios from 'axios'
 import schemas from '../schemas/index.js'
 import Shared from './shared.js'
+import { Op, col, literal, where } from 'sequelize'
 
 const {
     tbl_ingressos,
@@ -9,6 +10,7 @@ const {
     tbl_classes_ingressos,
     tbl_classe_numeracao,
     tbl_meio_pgto,
+    tbl_pos,
 } = schemas.ticketsl_promo
 
 const {
@@ -275,114 +277,12 @@ export default class RelatoriosAnaliticos {
      *  data_inicio: Date?,
      *  data_fim: Date?
      * }?} filtros Filtros de busca
-     * @param {string?} busca 
-     * @param {string?} linhas N° de linhas por página
-     * @param {string?} pagina Página da lista
-     * @returns 
-     */
-    static async getDetalhados(admin, evento, filtros, busca, linhas, pagina) {
-
-        // Obtêm os ingresso
-        let {
-            total,
-            pagina: page,
-            count,
-            ingressos
-        } = await this.getIngressosDetalhados(admin, evento, parseInt(linhas), parseInt(pagina))
-
-        // Busca - início
-
-        /*
-            Efetua a busca por:
-            - PDV;
-            - POS;
-            - ou por Código de barras do ingresso.
-        */
-        if(busca) {
-            let find_aux = busca.trim().toUpperCase()
-            ingressos = ingressos.filter(a => (
-                a.pdv.toUpperCase().includes(find_aux) ||
-                `${a.pos}`.includes(find_aux) ||
-                `${a.cod_barras}`.includes(find_aux)
-            ))
-        }
-
-        // Busca - fim
-
-
-        // Filtros - início
-
-        /*
-            Aplica os filtros.
-            Quando a `busca` é informada, ignora os filtros.
-        */
-        if(filtros && !busca) {
-            // Filtro por PDVs
-            if(!!filtros.pdv) {
-                ingressos = ingressos.filter(a => (
-                    a.pdv === filtros.pdv
-                ))
-            }
-
-            // Filtro por POS
-            if(!!filtros.pos) {
-                ingressos = ingressos.filter(a => (
-                    a.pos === filtros.pos
-                ))
-            }
-
-            // Filtro por Situação/status
-            if(!!filtros.situacao) {
-                ingressos = ingressos.filter(a => (
-                    a.situacao === filtros.situacao
-                ))
-            }
-
-            // Filtro por tipo/classe de ingresso
-            if(!!filtros.tipo) {
-                ingressos = ingressos.filter(a => (
-                    a.ing === filtros.tipo
-                ))
-            }
-
-            // Filtro por data de início
-            if(!!filtros.data_inicio) {
-                ingressos = ingressos.filter(a => (
-                    new Date(a.data_compra) >= new Date(filtros.data_inicio)
-                ))
-            }
-
-            // Filtro por data de fim
-            if(!!filtros.data_fim) {
-                ingressos = ingressos.filter(a => (
-                    new Date(a.data_compra) <= new Date(filtros.data_fim)
-                ))
-            }
-        }
-
-        // Filtros - fim
-
-
-        // Retorna os dados
-        return {
-            pagina: page,
-            total,
-            count,
-            data: await this.verificarCancelados(ingressos)
-        }
-    }
-
-    /**
-     * Retorna o relatório detalhado
-     * dos ingressos emitidos no evento.
-     * 
-     * @param {boolean} admin 
-     * @param {number} evento Id do evento
+     * @param {string?} busca Busca por: PDV, POS ou Código de barras
      * @param {number?} l Nº de linhas por página
      * @param {number?} p Página da lista
      * @returns 
      */
-    static async getIngressosDetalhados(admin, evento, l, p) {
+    static async getDetalhados(admin, evento, filtros, busca, l, p) {
 
         /**
          * Renomeia a forma de pagamento.
@@ -410,6 +310,91 @@ export default class RelatoriosAnaliticos {
             }
         }
 
+        // Lista dos filtros ativos
+        let where_filter = []
+
+        // Requisição com filtros de busca
+        if(busca || filtros) {
+            // Auxiliar da busca
+            let find = (busca ?? '').trim()
+
+            /*
+                Efetua a busca por:
+                - PDV;
+                - POS;
+                - ou por Código de barras do ingresso.
+            */
+            if(!!find) {
+                where_filter.push(where(col('tbl_pdv.pdv_nome'), Op.like, `%${find}%`))
+                where_filter.push(where(col('ing_pos'), Op.eq, find))
+                where_filter.push(where(col('ing_cod_barras'), Op.eq, find))
+            }
+
+            // Filtro por PDV
+            if(filtros.pdv) {
+                where_filter.push(where(col('tbl_pdv.pdv_nome'), Op.eq, filtros.pdv))
+            }
+
+            if(
+                // Busca pelas vendas do site
+                (!!find && 'quero ingresso - internet'.includes(find.toLowerCase())) ||
+
+                // Filtro pelos ingressos do site
+                filtros.pdv == 'Quero Ingresso - Internet'
+            ) {
+                where_filter.push(where(col('tbl_pdv.pdv_nome'), Op.is, null))
+            }
+
+            // Filtro por POS
+            if(filtros.pos) {
+                where_filter.push(where(col('ing_pos'), Op.eq, filtros.pos))
+            }
+
+            // Filtro por situação/status dos ingressos
+            if(filtros.situacao) {
+                // Auxiliar do status dos ingressos fora do site
+                let sit_aux
+                switch(filtros.situacao) {
+                    case 'Aprovado':
+                        sit_aux = [1,2]
+                        break
+
+                    case 'Estornado':
+                        sit_aux = [3]
+                        break
+
+                    default:
+                        sit_aux = null
+                        break
+                }
+
+                if(!!sit_aux)
+                    where_filter.push(where(col('ing_status'), Op.in, literal(`(${sit_aux})`)))
+
+                where_filter.push(where(
+                    col('lltckt_order_product_barcode.lltckt_order_product.lltckt_order.lltckt_order_status.name'),
+                    Op.eq, filtros.situacao
+                ))
+            }
+
+            // Filtro por tipo/classe de ingresso
+            if(filtros.tipo) {
+                let classe_split = filtros.tipo.split(' | ')[0]
+
+                where_filter.push(where(col('tbl_classes_ingresso.cla_nome'), Op.like, classe_split))
+            }
+
+            // Filtro por data de início
+            if(filtros.data_inicio) {
+                where_filter.push(where(col('ing_data_compra'), Op.gte, filtros.data_inicio))
+            }
+
+            // Filtro por data de fim
+            if(filtros.data_fim) {
+                where_filter.push(where(col('ing_data_compra'), Op.lte, filtros.data_fim))
+            }
+        }
+
         // Indicador de com ou sem paginação
         let with_pages = !isNaN(l) && !isNaN(p)
 
@@ -420,7 +405,10 @@ export default class RelatoriosAnaliticos {
             offset: with_pages ? (p -1) * l : undefined,
             limit: with_pages ? l : undefined,
 
-            where: { ing_evento: evento },
+            where: {
+                ing_evento: evento,
+                $or: where_filter.length ? where_filter : [literal('1=1')]
+            },
             attributes: [
                 'ing_data_compra',
                 'ing_pdv',
@@ -488,20 +476,25 @@ export default class RelatoriosAnaliticos {
                 }
             ]
         })
-        .then(({ count, rows }) => ({
+        .then(async ({ count, rows }) => ({
             total: with_pages ? Math.ceil(count / l) : undefined,
             pagina: with_pages ? p : undefined,
             count,
-            ingressos: rows.map(ing => {
+            ingressos: await this.verificarCancelados(rows.map(ing => {
                 // Auxiliar do valor do ingresso
                 let valor = parseFloat(ing.ing_valor)
 
-                // Classe (+ nome do solidário, se houver)
-                let classe = (`${ing.tbl_classes_ingresso.cla_nome} ${ing?.ing_solidario ?? ''}`).trim()
+                // Classe
+                let classe = ing.tbl_classes_ingresso.cla_nome
+
+                // Solidário
+                if(ing.ing_solidario) {
+                    classe += ` | ${ing.ing_solidario}`
+                }
 
                 // Meia entrada
                 if(ing.ing_meia) {
-                    classe += ' Meia-Entrada'
+                    classe += ' | Meia-Entrada'
                 }
 
                 // Auxiliar do ingresso no site
@@ -562,7 +555,7 @@ export default class RelatoriosAnaliticos {
                         cod_pagseguro: !!cod_pagseguro ? cod_pagseguro : '-'
                     }
                 }
-            })
+            }))
         }))
     }
 

@@ -171,7 +171,7 @@ export default class EventosController {
             pagina
         } = req.body
 
-        await RelatoriosAnaliticos.getDetalhados(admin, evento, filtros, busca, linhas, pagina)
+        await RelatoriosAnaliticos.getDetalhados(admin, evento, filtros, busca, parseInt(linhas), parseInt(pagina))
         .then(result => res.json(result))
         .catch(e => {
             console.error(e)
