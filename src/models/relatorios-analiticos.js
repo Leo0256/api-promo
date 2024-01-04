@@ -663,38 +663,50 @@ export default class RelatoriosAnaliticos {
         // Indicador de com ou sem paginação
         let with_pages = !isNaN(l) && !isNaN(p)
 
-        // Filtro por status do ingresso
-        let status = null
-        if(filtros?.status) {
-            status = await lltckt_order_status.findOne({
-                where: { name: filtros.status },
-                attributes: ['order_status_id']
-            })
-            .then(result => result?.order_status_id ?? 0)
+        // Filtros ativos
+        let where_filter = []
+        let where_ing = literal('1=1')
+
+        // Requisição com filtros de busca
+        if(busca || filtros) {
+            // Auxiliar da busca
+            let find = (busca ?? '').trim()
+
+            /*
+                Efetua a busca por:
+                - N° do pedido;
+                - N° de RG do comprador;
+                - Primeiro nome do comprador;
+                - Último nome do comprador.
+            */
+            if(!!find) {
+                where_filter.push(
+                    where(col('lltckt_order.order_id'), Op.like, find),
+                    where(col('lltckt_customer.rg'), Op.like, find),
+                    where(col('lltckt_order.firstname'), Op.like, `%${find}%`),
+                    where(col('lltckt_order.lastname'), Op.like, `%${find}%`),
+                    where(col('payment_firstname'), Op.like, `%${find}%`),
+                    where(col('payment_lastname'), Op.like, `%${find}%`)
+                )
+            }
+
+            // Filtro por classe de ingresso
+            if(filtros.ingresso) {
+                where_ing = where(
+                    col('name'),
+                    Op.like, filtros.ingresso
+                )
+            }
+
+            // Filtro por status do pedido
+            if(filtros.status) {
+                where_filter.push(where(
+                    col('lltckt_order_status.name'),
+                    Op.like, filtros.status
+                ))
+            }
         }
 
-        // Filtro de busca
-        let filtro_busca = {}
-        if(busca) {
-            // Procura pelo RG do cliente
-            let find_customer = await lltckt_customer.findAll({
-                where: { rg: busca },
-                attributes: ['customer_id']
-            })
-            .then(result => (
-                { $or: result.map(a => a.customer_id)}
-            ))
-
-            filtro_busca = { $or: [
-                { order_id: busca },            // N° do pedido
-                { firstname: busca },           // Primeiro nome do cliente
-                { lastname: busca },            // Último nome do cliente
-                { customer_id: find_customer }, // RG do cliente
-                { payment_firstname: busca },   // Primeiro nome do comprador
-                { payment_lastname: busca }     // Último nome do comprador
-            ]}
-        }
-        
         // Obtêm os pedidos no site
         return await lltckt_order.findAndCountAll({
             // Paginação
@@ -703,13 +715,9 @@ export default class RelatoriosAnaliticos {
 
             where: {
                 category_id: categoria,
-
-                // Filtro por status de ingresso
-                order_status_id: status ?? { $not: null },
-
-                // Filtros de busca
-                ...filtro_busca
+                $or: where_filter.length ? where_filter : [literal('1=1')]
             },
+            subQuery: false,
             attributes: [
                 'order_id',
                 'firstname',
@@ -734,43 +742,28 @@ export default class RelatoriosAnaliticos {
                         'price',
                         'tax'
                     ],
+                    required: true,
+                    separate: true,
+                    subQuery: false,
+                    where: where_ing,
 
-                    where: {
-                        // Filtro por classe de ingresso
-                        name: {
-                            $like: `%${filtros?.ingresso ?? ''}%`
+                    // Produto
+                    include: {
+                        model: lltckt_product,
+                        attributes: ['product_id'],
+
+                        // Classe do ingresso
+                        include: {
+                            model: tbl_classes_ingressos,
+                            attributes: ['cla_nome']
                         }
-                    },
-
-                    include: [
-                        // Produto
-                        {
-                            model: lltckt_product,
-                            attributes: ['product_id'],
-
-                            // Classe do ingresso
-                            include: {
-                                model: tbl_classes_ingressos,
-                                attributes: ['cla_nome']
-                            }
-                        },
-
-                        {
-                            model: lltckt_order_product_barcode,
-                            attributes: [],
-                            required: true,
-                            include: {
-                                model: tbl_ingressos,
-                                where: { ing_pos: null },
-                                attributes: []
-                            }
-                        }
-                    ]
+                    }
                 },
 
                 // Comprador
                 {
                     model: lltckt_customer,
+                    required: true,
                     attributes: ['rg']
                 },
 
