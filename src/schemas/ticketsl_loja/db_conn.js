@@ -30,7 +30,7 @@ const ticketsl_loja = new Sequelize({
     pool: {
         max: 3,
         min: 0,
-        acquire: 3000,
+        acquire: 10000,
         evict: 1000,
         idle: 0
     },
