@@ -1576,13 +1576,13 @@ export default class Eventos {
             switch (nome) {
                 case 'CREDITO':
                 case 'PagSeguro':
-                    return 'CARTÃO DE CRÉDITO'
+                    return 'Crédito'
                 
                 case 'DEBITO':
-                    return 'DÉBITO'
+                    return 'Débito'
             
                 default:
-                    return nome
+                    return nome[0].toUpperCase() + nome.slice(1).toLowerCase()
             }
         }
 

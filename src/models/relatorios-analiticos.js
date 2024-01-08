@@ -306,7 +306,7 @@ export default class RelatoriosAnaliticos {
                     return 'Débito'
             
                 default:
-                    return nome
+                    return nome[0].toUpperCase() + nome.slice(1).toLowerCase()
             }
         }
 
