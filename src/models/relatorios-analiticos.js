@@ -480,7 +480,7 @@ export default class RelatoriosAnaliticos {
             total: with_pages ? Math.ceil(count / l) : undefined,
             pagina: with_pages ? p : undefined,
             count,
-            ingressos: await this.verificarCancelados(rows.map(ing => {
+            data: await this.verificarCancelados(rows.map(ing => {
                 // Auxiliar do valor do ingresso
                 let valor = parseFloat(ing.ing_valor)
 
